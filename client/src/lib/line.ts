@@ -10,7 +10,8 @@ export async function generateLineQR(yoxoId: string): Promise<string> {
   }
 
   try {
-    const response = await fetch(`${LINE_API_URL}/qr`, {
+    const apiUrl = LINE_API_URL.endsWith('/') ? LINE_API_URL : `${LINE_API_URL}/`;
+    const response = await fetch(`${apiUrl}qr`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -36,7 +37,8 @@ export async function sendLineMessage(lineId: string, message: string): Promise<
   }
 
   try {
-    const response = await fetch(`${LINE_API_URL}/message`, {
+    const apiUrl = LINE_API_URL.endsWith('/') ? LINE_API_URL : `${LINE_API_URL}/`;
+    const response = await fetch(`${apiUrl}message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

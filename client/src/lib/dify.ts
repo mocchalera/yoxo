@@ -19,7 +19,8 @@ export async function generateAdvice(scores: FatigueScores): Promise<string> {
   }
 
   try {
-    const response = await fetch(DIFY_API_URL, {
+    const apiUrl = DIFY_API_URL.endsWith('/') ? DIFY_API_URL : `${DIFY_API_URL}/`;
+    const response = await fetch(`${apiUrl}completion-messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DIFY_API_KEY}`,
@@ -28,12 +29,13 @@ export async function generateAdvice(scores: FatigueScores): Promise<string> {
       body: JSON.stringify({
         messages: [{
           role: 'user',
-          content: `Generate personalized advice for: 
-            Fatigue Type: ${scores.fatigue_type}
-            Brain Fatigue: ${scores.brain_fatigue}
-            Mental Fatigue: ${scores.mental_fatigue}
-            Fatigue Source: ${scores.fatigue_source}
-            Resilience: ${scores.resilience}`
+          content: `以下の測定結果に基づいて、具体的で実践的なアドバイスを提供してください：
+
+疲労タイプ: ${scores.fatigue_type}
+脳疲労指数: ${scores.brain_fatigue}
+心疲労指数: ${scores.mental_fatigue}
+疲労源指数: ${scores.fatigue_source}
+レジリエンス: ${scores.resilience}`
         }],
         response_mode: 'blocking',
       }),

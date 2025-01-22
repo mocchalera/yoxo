@@ -5,8 +5,9 @@ import { db } from "@db";
 import { responses, users } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
 
-const DIFY_API_KEY = process.env.VITE_DIFY_API_KEY;
-const DIFY_API_URL = process.env.VITE_DIFY_API_URL;
+// サーバーサイドでは VITE_ プレフィックスなしの環境変数を使用
+const DIFY_API_KEY = process.env.DIFY_API_KEY || process.env.VITE_DIFY_API_KEY;
+const DIFY_API_URL = process.env.DIFY_API_URL || process.env.VITE_DIFY_API_URL;
 
 if (!DIFY_API_KEY || !DIFY_API_URL) {
   console.warn('Dify環境変数が設定されていません。アドバイス機能は無効化されます。');
@@ -101,8 +102,8 @@ export function registerRoutes(app: Express): Server {
     session({
       secret: 'your-secret-key',
       resave: false,
-      saveUninitialized: true,
-      cookie: { secure: process.env.NODE_ENV === 'production' }
+      saveUninitialized: false,
+      cookie: { secure: false } 
     })
   );
 
