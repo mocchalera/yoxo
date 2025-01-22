@@ -5,8 +5,8 @@ const { Pool } = pkg;
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL must be set. Did you forget to provision a database?');
+if (!process.env.SUPABASE_DB_URL) {
+  throw new Error('SUPABASE_DB_URL must be set. Did you forget to provision a database?');
 }
 
 // Supabase設定の検証
@@ -25,16 +25,9 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
   }
 });
 
-// データベース接続設定の解析
-const dbUrl = new URL(process.env.DATABASE_URL);
-
 // PostgreSQL接続プールの設定
 const pool = new Pool({
-  host: dbUrl.hostname,
-  port: parseInt(dbUrl.port || '5432'),
-  user: dbUrl.username,
-  password: dbUrl.password,
-  database: dbUrl.pathname.split('/')[1],
+  connectionString: process.env.SUPABASE_DB_URL,
   ssl: {
     rejectUnauthorized: false
   },
@@ -46,7 +39,6 @@ const pool = new Pool({
 // 接続イベントのログ
 pool.on('connect', () => {
   console.log('データベース接続が確立されました');
-  console.log('接続ホスト:', dbUrl.hostname);
 });
 
 pool.on('error', (err: Error) => {
