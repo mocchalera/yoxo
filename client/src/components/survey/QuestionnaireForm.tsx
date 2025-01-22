@@ -37,18 +37,8 @@ export function QuestionnaireForm({
 
   const onSubmit = async (values: { responses: string[] }) => {
     try {
-      // Check if all questions are answered
-      // RadioGroupの値は文字列の "1", "2", "3", "4" のいずれかになるはず
-      const validResponses = values.responses.every(response => 
-        ["1", "2", "3", "4"].includes(response)
-      )
-
-      console.log('Form validation:', {
-        responses: values.responses,
-        validResponses
-      })
-
-      if (!validResponses) {
+      // ラジオボタンの値が空でないことを確認
+      if (values.responses.includes("")) {
         toast({
           title: "エラー",
           description: "すべての質問に回答してください",
@@ -75,12 +65,10 @@ export function QuestionnaireForm({
 
         if (!response.ok) {
           const errorText = await response.text()
-          console.error('Survey submission failed:', errorText)
           throw new Error(errorText || '提出に失敗しました')
         }
 
         const data = await response.json()
-        console.log('Survey submission successful:', data)
 
         if (data.advice) {
           setAdvice(data.advice)
@@ -151,8 +139,8 @@ export function QuestionnaireForm({
         {submitting ? (
           <Skeleton className="w-full h-10" />
         ) : (
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             className="w-full"
           >
             {isLastSection ? "測定完了" : "次へ"}
