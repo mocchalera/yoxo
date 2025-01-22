@@ -23,7 +23,7 @@ interface QuestionnaireFormProps {
 
 const formSchema = (questionsLength: number) => z.object({
   responses: z.array(
-    z.string().min(1, "この質問は回答必須です")
+    z.number().min(1).max(4)
   ).length(questionsLength, "すべての質問に回答してください")
 })
 
@@ -40,11 +40,11 @@ export function QuestionnaireForm({
   const form = useForm({
     resolver: zodResolver(formSchema(section.questions.length)),
     defaultValues: {
-      responses: Array(section.questions.length).fill("")
+      responses: Array(section.questions.length).fill(null)
     }
   })
 
-  const onSubmit = async (values: { responses: string[] }) => {
+  const onSubmit = async (values: { responses: number[] }) => {
     try {
       setSubmitting(true)
 
@@ -68,7 +68,7 @@ export function QuestionnaireForm({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            responses: allResponses.map(Number),
+            responses: allResponses,
             userId
           })
         })
@@ -121,14 +121,14 @@ export function QuestionnaireForm({
                 <FormLabel>{question}</FormLabel>
                 <FormControl>
                   <RadioGroup
-                    onValueChange={field.onChange}
-                    value={field.value}
+                    onValueChange={(value) => field.onChange(Number(value))}
+                    value={field.value?.toString()}
                     className="flex space-x-4"
                   >
                     {[1, 2, 3, 4].map((value) => (
                       <FormItem key={value} className="flex items-center space-x-2">
                         <FormControl>
-                          <RadioGroupItem value={String(value)} />
+                          <RadioGroupItem value={value.toString()} />
                         </FormControl>
                         <FormLabel className="font-normal">
                           {value}
