@@ -3,19 +3,19 @@ const { Pool } = pkg;
 import * as schema from '@db/schema';
 
 async function testConnection() {
-  if (!process.env.SUPABASE_DB_URL) {
-    console.error('SUPABASE_DB_URL環境変数が設定されていません。');
+  if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL環境変数が設定されていません。');
     process.exit(1);
   }
 
-  console.log('接続文字列の確認:', process.env.SUPABASE_DB_URL.replace(/:[^:@]+@/, ':***@'));
+  console.log('接続文字列の確認:', process.env.DATABASE_URL.replace(/:[^:@]+@/, ':***@'));
 
   const pool = new Pool({
-    connectionString: process.env.SUPABASE_DB_URL,
+    connectionString: process.env.DATABASE_URL,
     ssl: {
       rejectUnauthorized: false
     },
-    connectionTimeoutMillis: 10000, // タイムアウトを10秒に設定
+    connectionTimeoutMillis: 10000,
   });
 
   try {

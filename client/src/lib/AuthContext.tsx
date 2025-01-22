@@ -1,88 +1,59 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import type { User } from '@supabase/supabase-js'
-import { supabase } from './supabase'
 import { useToast } from '@/hooks/use-toast'
 
+interface User {
+  id: number;
+  username: string;
+}
+
 interface AuthContextType {
-  user: User | null
-  loading: boolean
-  error: Error | null
+  user: User | null;
+  loading: boolean;
+  error: Error | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   error: null
-})
+});
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-  const { toast } = useToast()
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // 現在のセッションを取得
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        syncUserWithBackend(session.user.id).catch(console.error)
-      }
-      setLoading(false)
-    })
-
-    // 認証状態の変更を監視
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user
-      setUser(currentUser ?? null)
-      setLoading(false)
-
-      if (currentUser) {
-        try {
-          await syncUserWithBackend(currentUser.id)
-        } catch (error) {
-          console.error('Error syncing user:', error)
-          setError(error instanceof Error ? error : new Error('Unknown error'))
-          toast({
-            title: "エラー",
-            description: "ユーザー情報の同期に失敗しました",
-            variant: "destructive"
-          })
-        }
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
-
-  async function syncUserWithBackend(supabaseId: string) {
-    const response = await fetch('/api/auth/sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        supabase_id: supabaseId,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to sync user data')
-    }
-
-    const data = await response.json()
-    return data
-  }
+    // セッション情報を取得
+    fetch('/api/auth/me')
+      .then(res => {
+        if (!res.ok) throw new Error('認証情報の取得に失敗しました');
+        return res.json();
+      })
+      .then(data => {
+        setUser(data);
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error('認証エラー:', error);
+        setError(error);
+        setLoading(false);
+        toast({
+          title: "エラー",
+          description: "認証情報の取得に失敗しました",
+          variant: "destructive"
+        });
+      });
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, error }}>
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth() {
-  return useContext(AuthContext)
+  return useContext(AuthContext);
 }

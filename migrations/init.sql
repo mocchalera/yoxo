@@ -6,7 +6,8 @@ DROP TABLE IF EXISTS users CASCADE;
 -- Create users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    supabase_id TEXT NOT NULL UNIQUE,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
     line_id TEXT UNIQUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -15,7 +16,7 @@ CREATE TABLE users (
 CREATE TABLE survey_responses (
     id SERIAL PRIMARY KEY,
     yoxo_id TEXT NOT NULL UNIQUE,
-    user_id TEXT NOT NULL,  -- Changed from UUID to TEXT
+    user_id INTEGER NOT NULL REFERENCES users(id),
     section1_responses JSONB NOT NULL,
     section2_responses JSONB NOT NULL,
     section3_responses JSONB NOT NULL,
@@ -26,13 +27,13 @@ CREATE TABLE survey_responses (
 -- Create messages table
 CREATE TABLE messages (
     id SERIAL PRIMARY KEY,
-    user_id TEXT NOT NULL,  -- Changed from UUID to TEXT
+    user_id INTEGER NOT NULL REFERENCES users(id),
     dify_message TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Create indexes
-CREATE INDEX idx_users_supabase_id ON users(supabase_id);
+CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_line_id ON users(line_id);
 CREATE INDEX idx_survey_responses_user_id ON survey_responses(user_id);
 CREATE INDEX idx_survey_responses_yoxo_id ON survey_responses(yoxo_id);
