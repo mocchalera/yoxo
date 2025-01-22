@@ -63,17 +63,17 @@ export function QuestionnaireForm({
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              responses: allResponses,
+              responses: allResponses.slice(0, 16), // 最初の16個の回答のみを使用
               supabaseId: user?.id
             })
           })
 
-          const data = await response.json()
-
           if (!response.ok) {
-            throw new Error(data.error || data.message || '送信に失敗しました')
+            const errorData = await response.json()
+            throw new Error(errorData.message || errorData.error || '送信に失敗しました')
           }
 
+          const data = await response.json()
           sessionStorage.removeItem('survey_responses')
 
           if (data.scores) {

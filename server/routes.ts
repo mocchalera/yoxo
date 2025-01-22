@@ -84,9 +84,19 @@ export function registerRoutes(app: Express): Server {
   app.post('/api/submit-survey', async (req, res) => {
     try {
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
-      const section1 = req.body.responses.slice(0, 6);
-      const section2 = req.body.responses.slice(6, 12);
-      const section3 = req.body.responses.slice(12, 16);
+      const responses = req.body.responses;
+
+      // バリデーション
+      if (!Array.isArray(responses) || responses.length !== 16) {
+        return res.status(400).json({
+          message: "無効な回答データです",
+          error: "回答は16個である必要があります"
+        });
+      }
+
+      const section1 = responses.slice(0, 6);
+      const section2 = responses.slice(6, 12);
+      const section3 = responses.slice(12, 16);
 
       const calculateScore = (responses: number[]) => {
         const sum = responses.reduce((a, b) => a + b, 0);
@@ -137,7 +147,8 @@ export function registerRoutes(app: Express): Server {
           user_id: userId,
           section1_responses: section1,
           section2_responses: section2,
-          section3_responses: section3
+          section3_responses: section3,
+          calculated_scores: calculatedScores
         });
 
         const [newResponse] = await db.insert(survey_responses).values({
