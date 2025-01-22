@@ -28,6 +28,9 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
   }
 });
 
+// 未認証ユーザー用の固定UUID
+const GUEST_USER_ID = '00000000-0000-0000-0000-000000000000';
+
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   const MemoryStoreSession = MemoryStore(session);
@@ -127,9 +130,11 @@ export function registerRoutes(app: Express): Server {
       };
 
       try {
+        const userId = req.body.supabaseId || GUEST_USER_ID;
+
         console.log('Attempting to save survey response:', {
           yoxo_id: yoxoId,
-          user_id: req.body.supabaseId || 'guest',
+          user_id: userId,
           section1_responses: section1,
           section2_responses: section2,
           section3_responses: section3
@@ -137,7 +142,7 @@ export function registerRoutes(app: Express): Server {
 
         const [newResponse] = await db.insert(survey_responses).values({
           yoxo_id: yoxoId,
-          user_id: req.body.supabaseId || 'guest',
+          user_id: userId,
           section1_responses: section1,
           section2_responses: section2,
           section3_responses: section3,
