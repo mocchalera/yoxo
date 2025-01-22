@@ -162,6 +162,7 @@ export function registerRoutes(app: Express): Server {
         }).returning();
 
         console.log('アンケート回答を保存しました:', newResponse);
+        console.log('使用したデータベースURL:', process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':***@'));
 
         res.json({
           yoxoId,
