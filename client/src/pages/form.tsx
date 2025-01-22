@@ -54,12 +54,14 @@ export default function FormPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <Progress value={progress} className="w-full" />
 
-        <QuestionnaireForm
-          section={sections[currentSection]}
-          onComplete={handleComplete}
-          onSectionComplete={() => setCurrentSection(c => c + 1)}
-          isLastSection={currentSection === sections.length - 1}
-        />
+        {currentSection < sections.length && (
+          <QuestionnaireForm
+            section={sections[currentSection]}
+            onComplete={handleComplete}
+            onSectionComplete={() => setCurrentSection(c => c + 1)}
+            isLastSection={currentSection === sections.length - 1}
+          />
+        )}
       </div>
     </div>
   )
