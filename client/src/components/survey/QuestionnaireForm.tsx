@@ -37,16 +37,6 @@ export function QuestionnaireForm({
 
   const onSubmit = async (values: { responses: string[] }) => {
     try {
-      // ラジオボタンの値が空でないことを確認
-      if (values.responses.includes("")) {
-        toast({
-          title: "エラー",
-          description: "すべての質問に回答してください",
-          variant: "destructive"
-        })
-        return
-      }
-
       setSubmitting(true)
 
       if (isLastSection) {
@@ -83,7 +73,6 @@ export function QuestionnaireForm({
         form.reset()
       }
     } catch (error) {
-      console.error('Error submitting form:', error)
       toast({
         title: "エラー",
         description: error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。",
