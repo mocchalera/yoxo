@@ -28,7 +28,14 @@ export function QuestionnaireForm({
   const [submitting, setSubmitting] = useState(false)
   const [advice, setAdvice] = useState<string | null>(null)
 
-  const progress = (responses.length / section.questions.length) * 100
+  const progress = (currentQuestionIndex / section.questions.length) * 100
+
+  console.log('Current state:', { 
+    currentQuestionIndex,
+    totalQuestions: section.questions.length,
+    responses,
+    progress
+  })
 
   const handleAnswer = async (value: number) => {
     const newResponses = [...responses, value]
@@ -54,7 +61,7 @@ export function QuestionnaireForm({
           // 現在のセクションの回答を追加
           const allResponses = [...previousResponses, ...newResponses]
 
-          console.log('Submitting responses:', allResponses) // デバッグ用
+          console.log('Submitting final responses:', allResponses)
 
           const response = await fetch('/api/submit-survey', {
             method: 'POST',
@@ -90,7 +97,7 @@ export function QuestionnaireForm({
           onSectionComplete()
         }
       } catch (error) {
-        console.error('Error submitting survey:', error) // デバッグ用
+        console.error('Error submitting survey:', error)
         toast({
           title: "エラー",
           description: error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。",
@@ -104,11 +111,15 @@ export function QuestionnaireForm({
     }
   }
 
+  if (currentQuestionIndex >= section.questions.length) {
+    return null;
+  }
+
   return (
     <div className="space-y-6">
       <Progress value={progress} className="h-2" />
 
-      {!submitting && currentQuestionIndex < section.questions.length && (
+      {!submitting && (
         <QuestionCard
           question={section.questions[currentQuestionIndex]}
           sectionTitle={section.title}
