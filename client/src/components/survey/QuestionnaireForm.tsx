@@ -1,10 +1,7 @@
-import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { responseSchema } from "@db/schema"
 import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -41,8 +38,17 @@ export function QuestionnaireForm({
   const onSubmit = async (values: { responses: string[] }) => {
     try {
       console.log('Form submitted with values:', values)
-      if (!values.responses.every(r => r)) {
-        throw new Error('すべての質問に回答してください')
+      const responses = form.getValues().responses
+      console.log('Current form responses:', responses)
+
+      const hasEmptyResponses = responses.some(r => !r)
+      if (hasEmptyResponses) {
+        toast({
+          title: "エラー",
+          description: "すべての質問に回答してください",
+          variant: "destructive"
+        })
+        return
       }
 
       setSubmitting(true)
@@ -57,7 +63,7 @@ export function QuestionnaireForm({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            responses: values.responses.map(Number),
+            responses: responses.map(Number),
             userId: user?.id
           })
         })
@@ -94,14 +100,6 @@ export function QuestionnaireForm({
       setSubmitting(false)
     }
   }
-
-  // デバッグ情報の出力
-  console.log('Form validation state:', {
-    values: form.getValues(),
-    isDirty: form.formState.isDirty
-  })
-
-  const isFormValid = form.getValues().responses.every(r => r !== "")
 
   return (
     <Form {...form}>
