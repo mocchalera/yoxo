@@ -32,8 +32,9 @@ export function QuestionnaireForm({
   const [submitting, setSubmitting] = useState(false)
   const [advice, setAdvice] = useState<string | null>(null)
 
+  // フォームのバリデーションスキーマを作成
   const formSchema = z.object({
-    responses: z.array(z.string().regex(/^[1-4]$/))
+    responses: z.array(z.string().regex(/^[1-4]$/)).length(section.questions.length)
   })
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -45,10 +46,13 @@ export function QuestionnaireForm({
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      console.log('Form submitted with values:', values); // デバッグログ
       setSubmitting(true)
+
       if (isLastSection) {
         // Get current user if logged in
         const user = await getCurrentUser();
+        console.log('Current user:', user); // デバッグログ
 
         const response = await fetch('/api/submit-survey', {
           method: 'POST',
@@ -57,21 +61,27 @@ export function QuestionnaireForm({
           },
           body: JSON.stringify({
             responses: values.responses.map(Number),
-            userId: user?.id // Add user ID if available
+            userId: user?.id
           })
         })
 
-        if (!response.ok) throw new Error('提出に失敗しました')
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Survey submission failed:', errorText); // デバッグログ
+          throw new Error(errorText || '提出に失敗しました');
+        }
 
-        const { yoxoId, advice } = await response.json()
-        if (advice) {
-          setAdvice(advice)
+        const data = await response.json()
+        console.log('Survey submission response:', data); // デバッグログ
+
+        if (data.advice) {
+          setAdvice(data.advice)
           // Show advice for 5 seconds before redirecting
           setTimeout(() => {
-            onComplete(yoxoId)
+            onComplete(data.yoxoId)
           }, 5000)
         } else {
-          onComplete(yoxoId)
+          onComplete(data.yoxoId)
         }
       } else {
         onSectionComplete()
@@ -81,13 +91,16 @@ export function QuestionnaireForm({
       console.error('Error submitting form:', error)
       toast({
         title: "エラー",
-        description: "送信に失敗しました。もう一度お試しください。",
+        description: error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。",
         variant: "destructive"
       })
     } finally {
       setSubmitting(false)
     }
   }
+
+  // フォームのバリデーションエラーをログに出力
+  console.log('Form errors:', form.formState.errors); // デバッグログ
 
   return (
     <Form {...form}>
@@ -134,7 +147,11 @@ export function QuestionnaireForm({
         {submitting ? (
           <Skeleton className="w-full h-10" />
         ) : (
-          <Button type="submit" className="w-full">
+          <Button 
+            type="submit" 
+            className="w-full"
+            disabled={!form.formState.isValid}
+          >
             {isLastSection ? "測定完了" : "次へ"}
           </Button>
         )}

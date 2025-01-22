@@ -94,10 +94,14 @@ export function registerRoutes(app: Express): Server {
   // Submit survey responses
   app.post('/api/submit-survey', async (req, res) => {
     try {
+      console.log('Received survey submission:', req.body); // デバッグログ
+
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
       const section1 = req.body.responses.slice(0, 6);
       const section2 = req.body.responses.slice(6, 12);
       const section3 = req.body.responses.slice(12, 16);
+
+      console.log('Parsed sections:', { section1, section2, section3 }); // デバッグログ
 
       // Calculate scores based on questionnaire spec
       const calculateScore = (responses: number[]) => {
@@ -109,6 +113,13 @@ export function registerRoutes(app: Express): Server {
       const mentalFatigue = calculateScore(section3);
       const brainFatigue = (mentalFatigue - 50) * 50/30 + 50;
       const resilience = 100 * (2 * fatigueSource)/(2 * fatigueSource + mentalFatigue + brainFatigue);
+
+      console.log('Calculated scores:', { 
+        fatigueSource, 
+        mentalFatigue, 
+        brainFatigue, 
+        resilience 
+      }); // デバッグログ
 
       // Determine fatigue type
       const getFatigueType = (mental: number, brain: number) => {
@@ -147,15 +158,19 @@ export function registerRoutes(app: Express): Server {
 
       // Get personalized advice with user context if available
       const userId = req.body.userId;
+      console.log('User ID for advice:', userId); // デバッグログ
       const advice = await generateAdvice(calculatedScores, userId);
 
-      await db.insert(responses).values({
+      const response = await db.insert(responses).values({
         yoxo_id: yoxoId,
+        user_id: userId,
         section1_responses: section1,
         section2_responses: section2,
         section3_responses: section3,
         calculated_scores: calculatedScores
       });
+
+      console.log('Database insert response:', response); // デバッグログ
 
       res.json({ 
         yoxoId,
@@ -163,7 +178,10 @@ export function registerRoutes(app: Express): Server {
       });
     } catch (error) {
       console.error('Error submitting survey:', error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ 
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
