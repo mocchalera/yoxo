@@ -40,11 +40,7 @@ export function registerRoutes(app: Express): Server {
 
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
       const responses = req.body.responses;
-      const userId = req.session.userId;
-
-      if (!userId) {
-        return res.status(401).json({ message: "認証が必要です" });
-      }
+      const userId = req.session.userId; // オプショナル
 
       // バリデーション
       if (!Array.isArray(responses) || responses.length !== 16) {
@@ -100,15 +96,20 @@ export function registerRoutes(app: Express): Server {
       };
 
       try {
-        const [newResponse] = await db.insert(survey_responses).values({
+        const surveyData: any = {
           yoxo_id: yoxoId,
-          user_id: parseInt(userId),
           section1_responses: section1,
           section2_responses: section2,
           section3_responses: section3,
           calculated_scores: calculatedScores
-        }).returning();
+        };
 
+        // ユーザーIDが存在する場合のみ追加
+        if (userId) {
+          surveyData.user_id = parseInt(userId);
+        }
+
+        const [newResponse] = await db.insert(survey_responses).values(surveyData).returning();
         console.log('アンケート回答を保存しました:', newResponse);
 
         res.json({

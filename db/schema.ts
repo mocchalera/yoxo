@@ -13,7 +13,7 @@ export const users = pgTable("users", {
 export const survey_responses = pgTable("survey_responses", {
   id: serial("id").primaryKey(),
   yoxo_id: text("yoxo_id").unique().notNull(),
-  user_id: serial("user_id").references(() => users.id).notNull(),
+  user_id: serial("user_id").references(() => users.id),  // Now nullable
   section1_responses: jsonb("section1_responses").$type<number[]>().notNull(),
   section2_responses: jsonb("section2_responses").$type<number[]>().notNull(),
   section3_responses: jsonb("section3_responses").$type<number[]>().notNull(),
