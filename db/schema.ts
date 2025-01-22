@@ -1,10 +1,10 @@
-import { pgTable, text, serial, timestamp, jsonb, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  supabase_id: uuid("supabase_id").unique().notNull(),
+  supabase_id: text("supabase_id").unique().notNull(),
   line_id: text("line_id").unique(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
@@ -12,7 +12,7 @@ export const users = pgTable("users", {
 export const survey_responses = pgTable("survey_responses", {
   id: serial("id").primaryKey(),
   yoxo_id: text("yoxo_id").unique().notNull(),
-  user_id: uuid("user_id").notNull(),  // Supabase user ID
+  user_id: text("user_id").notNull(),  // Changed from uuid to text
   section1_responses: jsonb("section1_responses").$type<number[]>().notNull(),
   section2_responses: jsonb("section2_responses").$type<number[]>().notNull(),
   section3_responses: jsonb("section3_responses").$type<number[]>().notNull(),
@@ -28,7 +28,7 @@ export const survey_responses = pgTable("survey_responses", {
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
-  user_id: uuid("user_id").notNull(),  // Supabase user ID
+  user_id: text("user_id").notNull(),  // Changed from uuid to text
   dify_message: text("dify_message").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });

@@ -1,19 +1,20 @@
-import postgres from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@db/schema";
-
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URLが設定されていません",
-  );
-}
+import postgres from "pg";
 
 const { Pool } = postgres;
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL環境変数が設定されていません");
+}
 
 console.log('データベース接続を開始します...');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  },
   max: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,

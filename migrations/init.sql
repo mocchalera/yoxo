@@ -15,7 +15,7 @@ CREATE TABLE users (
 CREATE TABLE survey_responses (
     id SERIAL PRIMARY KEY,
     yoxo_id TEXT NOT NULL UNIQUE,
-    user_id TEXT NOT NULL,  -- Supabase user ID
+    user_id TEXT NOT NULL,  -- Changed from UUID to TEXT
     section1_responses JSONB NOT NULL,
     section2_responses JSONB NOT NULL,
     section3_responses JSONB NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE survey_responses (
 -- Create messages table
 CREATE TABLE messages (
     id SERIAL PRIMARY KEY,
-    user_id TEXT NOT NULL,  -- Supabase user ID
+    user_id TEXT NOT NULL,  -- Changed from UUID to TEXT
     dify_message TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
