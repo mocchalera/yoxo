@@ -1,61 +1,111 @@
 import { createClient } from '@supabase/supabase-js';
 import fetch from 'node-fetch';
+import pkg from 'pg';
+const { Pool } = pkg;
+import dns from 'dns';
 
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY || !process.env.SUPABASE_DB_URL) {
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY || !process.env.DATABASE_URL) {
   console.error('必要な環境変数が設定されていません：');
   console.log('SUPABASE_URL:', !!process.env.SUPABASE_URL);
   console.log('SUPABASE_ANON_KEY:', !!process.env.SUPABASE_ANON_KEY);
-  console.log('SUPABASE_DB_URL:', !!process.env.SUPABASE_DB_URL);
+  console.log('DATABASE_URL:', !!process.env.DATABASE_URL);
   process.exit(1);
 }
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-  },
-  global: {
-    fetch: fetch as any
-  }
-});
+console.log('接続テストを開始します...');
 
-async function testSupabaseConnection() {
+// DNS解決のテスト
+async function testDNSResolution() {
+  console.log('\n1. DNS解決テスト:');
   try {
-    console.log('Supabase接続テストを開始します...');
-    
-    // 認証テスト
-    console.log('\n1. 認証接続テスト:');
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
-    console.log('認証状態:', session ? '成功' : '未認証');
-    if (authError) console.error('認証エラー:', authError);
+    const url = new URL(process.env.DATABASE_URL!);
+    console.log('ホスト名:', url.hostname);
 
-    // データベーステスト
-    console.log('\n2. データベース接続テスト:');
-    const { error: dbError } = await supabase
-      .from('users')
-      .select('count')
-      .limit(1)
-      .single();
-    
-    if (dbError) {
-      console.log('データベースエラー:', {
-        message: dbError.message,
-        code: dbError.code,
-        details: dbError.details,
-        hint: dbError.hint
+    const addresses = await new Promise((resolve, reject) => {
+      dns.resolve(url.hostname, (err, addresses) => {
+        if (err) reject(err);
+        else resolve(addresses);
       });
-    } else {
-      console.log('データベース接続成功');
-    }
+    });
 
-    // プロジェクト情報
-    console.log('\n3. プロジェクト設定:');
-    console.log('Supabase URL:', process.env.SUPABASE_URL?.substring(0, 30) + '...');
-    console.log('Database URL exists:', !!process.env.SUPABASE_DB_URL);
-    
-  } catch (error) {
-    console.error('予期せぬエラーが発生しました:', error);
+    console.log('DNS解決結果:', addresses);
+  } catch (error: any) {
+    console.error('DNS解決エラー:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
   }
 }
 
-testSupabaseConnection();
+// データベース接続テスト
+async function testDatabaseConnection() {
+  console.log('\n2. データベース接続テスト:');
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+
+  try {
+    const client = await pool.connect();
+    console.log('接続成功');
+
+    const result = await client.query('SELECT version()');
+    console.log('PostgreSQLバージョン:', result.rows[0].version);
+
+    client.release();
+    await pool.end();
+  } catch (error: any) {
+    console.error('データベース接続エラー:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint
+    });
+  }
+}
+
+// Supabase APIテスト
+async function testSupabaseAPI() {
+  console.log('\n3. Supabase API接続テスト:');
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true
+    },
+    global: {
+      fetch: fetch as any
+    }
+  });
+
+  try {
+    const { data, error } = await supabase.from('users').select('count').limit(1);
+    if (error) throw error;
+    console.log('Supabase API接続成功');
+  } catch (error: any) {
+    console.error('Supabase APIエラー:', {
+      message: error.message,
+      code: error.code,
+      details: error.details
+    });
+  }
+}
+
+// すべてのテストを実行
+async function runAllTests() {
+  console.log('環境変数:');
+  console.log('DATABASE_URL:', process.env.DATABASE_URL!.replace(/:[^:@]+@/, ':***@'));
+  console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
+
+  try {
+    await testDNSResolution();
+    await testDatabaseConnection();
+    await testSupabaseAPI();
+  } catch (error) {
+    console.error('テスト実行中にエラーが発生しました:', error);
+  }
+}
+
+runAllTests();
