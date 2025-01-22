@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { useLocation } from "wouter"
 import { QuestionnaireForm } from "@/components/survey/QuestionnaireForm"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 
 const sections = [
@@ -51,23 +50,16 @@ export default function FormPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary/10 to-background p-4">
+    <div className="min-h-screen bg-gradient-to-b from-primary/10 to-background p-4 md:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
         <Progress value={progress} className="w-full" />
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>{sections[currentSection].title}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <QuestionnaireForm
-              section={sections[currentSection]}
-              onComplete={handleComplete}
-              onSectionComplete={() => setCurrentSection(c => c + 1)}
-              isLastSection={currentSection === sections.length - 1}
-            />
-          </CardContent>
-        </Card>
+
+        <QuestionnaireForm
+          section={sections[currentSection]}
+          onComplete={handleComplete}
+          onSectionComplete={() => setCurrentSection(c => c + 1)}
+          isLastSection={currentSection === sections.length - 1}
+        />
       </div>
     </div>
   )

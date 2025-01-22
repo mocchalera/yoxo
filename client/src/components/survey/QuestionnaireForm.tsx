@@ -1,14 +1,9 @@
-import { useForm } from "react-hook-form"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getCurrentUser } from "@/lib/supabase"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { Progress } from "@/components/ui/progress"
+import { QuestionCard } from "./QuestionCard"
 
 interface QuestionnaireFormProps {
   section: {
@@ -21,12 +16,6 @@ interface QuestionnaireFormProps {
   isLastSection: boolean
 }
 
-const formSchema = (questionsLength: number) => z.object({
-  responses: z.array(
-    z.number().min(1).max(4)
-  ).length(questionsLength, "すべての質問に回答してください")
-})
-
 export function QuestionnaireForm({
   section,
   onComplete,
@@ -34,134 +23,105 @@ export function QuestionnaireForm({
   isLastSection
 }: QuestionnaireFormProps) {
   const { toast } = useToast()
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [responses, setResponses] = useState<number[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [advice, setAdvice] = useState<string | null>(null)
 
-  const form = useForm({
-    resolver: zodResolver(formSchema(section.questions.length)),
-    defaultValues: {
-      responses: Array(section.questions.length).fill(null)
-    }
-  })
+  const progress = ((responses.length + 1) / section.questions.length) * 100
 
-  const onSubmit = async (values: { responses: number[] }) => {
-    try {
-      setSubmitting(true)
+  const handleAnswer = async (value: number) => {
+    const newResponses = [...responses, value]
+    setResponses(newResponses)
 
-      if (isLastSection) {
-        let userId = null;
-        try {
-          const user = await getCurrentUser();
-          if (user) {
-            userId = user.id;
+    if (newResponses.length === section.questions.length) {
+      try {
+        setSubmitting(true)
+
+        if (isLastSection) {
+          let userId = null
+          try {
+            const user = await getCurrentUser()
+            if (user) {
+              userId = user.id
+            }
+          } catch (error) {
+            console.log('No authenticated user, proceeding as guest')
           }
-        } catch (error) {
-          console.log('No authenticated user, proceeding as guest');
-        }
 
-        const allResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
-        allResponses.push(...values.responses)
+          const allResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
+          allResponses.push(...newResponses)
 
-        const response = await fetch('/api/submit-survey', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            responses: allResponses,
-            userId
+          const response = await fetch('/api/submit-survey', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              responses: allResponses,
+              userId
+            })
           })
-        })
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(errorText || '提出に失敗しました')
-        }
+          if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(errorText || '提出に失敗しました')
+          }
 
-        const data = await response.json()
-        sessionStorage.removeItem('survey_responses')
+          const data = await response.json()
+          sessionStorage.removeItem('survey_responses')
 
-        if (data.advice) {
-          setAdvice(data.advice)
-          setTimeout(() => {
+          if (data.advice) {
+            setAdvice(data.advice)
+            setTimeout(() => {
+              onComplete(data.yoxoId)
+            }, 5000)
+          } else {
             onComplete(data.yoxoId)
-          }, 5000)
+          }
         } else {
-          onComplete(data.yoxoId)
+          const currentResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
+          currentResponses.push(...newResponses)
+          sessionStorage.setItem('survey_responses', JSON.stringify(currentResponses))
+          onSectionComplete()
         }
-      } else {
-        const currentResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
-        currentResponses.push(...values.responses)
-        sessionStorage.setItem('survey_responses', JSON.stringify(currentResponses))
-
-        onSectionComplete()
-        form.reset()
+      } catch (error) {
+        toast({
+          title: "エラー",
+          description: error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。",
+          variant: "destructive"
+        })
+      } finally {
+        setSubmitting(false)
       }
-    } catch (error) {
-      toast({
-        title: "エラー",
-        description: error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。",
-        variant: "destructive"
-      })
-    } finally {
-      setSubmitting(false)
+    } else {
+      setCurrentQuestionIndex(prev => prev + 1)
     }
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {section.questions.map((question, index) => (
-          <FormField
-            key={index}
-            control={form.control}
-            name={`responses.${index}`}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{question}</FormLabel>
-                <FormControl>
-                  <RadioGroup
-                    onValueChange={(value) => field.onChange(Number(value))}
-                    value={field.value?.toString()}
-                    className="flex space-x-4"
-                  >
-                    {[1, 2, 3, 4].map((value) => (
-                      <FormItem key={value} className="flex items-center space-x-2">
-                        <FormControl>
-                          <RadioGroupItem value={value.toString()} />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          {value}
-                        </FormLabel>
-                      </FormItem>
-                    ))}
-                  </RadioGroup>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ))}
+    <div className="space-y-6">
+      <Progress value={progress} className="h-2" />
 
-        {advice && (
-          <Alert>
-            <AlertDescription className="whitespace-pre-line">
-              {advice}
-            </AlertDescription>
-          </Alert>
-        )}
+      {!submitting && currentQuestionIndex < section.questions.length && (
+        <QuestionCard
+          question={section.questions[currentQuestionIndex]}
+          sectionTitle={section.title}
+          sectionDescription={section.description}
+          currentIndex={currentQuestionIndex}
+          totalQuestions={section.questions.length}
+          onAnswer={handleAnswer}
+          isLast={isLastSection && currentQuestionIndex === section.questions.length - 1}
+        />
+      )}
 
-        {submitting ? (
-          <Skeleton className="w-full h-10" />
-        ) : (
-          <Button
-            type="submit"
-            className="w-full"
-          >
-            {isLastSection ? "測定完了" : "次へ"}
-          </Button>
-        )}
-      </form>
-    </Form>
+      {advice && (
+        <Alert>
+          <AlertDescription className="whitespace-pre-line">
+            {advice}
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
   )
 }
