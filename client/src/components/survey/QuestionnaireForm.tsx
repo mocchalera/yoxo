@@ -28,7 +28,6 @@ export function QuestionnaireForm({
   const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
   const [advice, setAdvice] = useState<string | null>(null)
-
   const form = useForm({
     defaultValues: {
       responses: Array(section.questions.length).fill("")
@@ -50,13 +49,16 @@ export function QuestionnaireForm({
           console.log('No authenticated user, proceeding as guest');
         }
 
+        const allResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
+        allResponses.push(...values.responses)
+
         const response = await fetch('/api/submit-survey', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            responses: values.responses.map(Number),
+            responses: allResponses.map(Number),
             userId
           })
         })
@@ -67,6 +69,7 @@ export function QuestionnaireForm({
         }
 
         const data = await response.json()
+        sessionStorage.removeItem('survey_responses')
 
         if (data.advice) {
           setAdvice(data.advice)
@@ -77,6 +80,10 @@ export function QuestionnaireForm({
           onComplete(data.yoxoId)
         }
       } else {
+        const currentResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
+        currentResponses.push(...values.responses)
+        sessionStorage.setItem('survey_responses', JSON.stringify(currentResponses))
+
         onSectionComplete()
         form.reset()
       }
