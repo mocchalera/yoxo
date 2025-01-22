@@ -1,5 +1,5 @@
-const DIFY_API_KEY = process.env.VITE_DIFY_API_KEY
-const DIFY_API_URL = process.env.VITE_DIFY_API_URL
+const DIFY_API_KEY = import.meta.env.VITE_DIFY_API_KEY
+const DIFY_API_URL = import.meta.env.VITE_DIFY_API_URL
 
 if (!DIFY_API_KEY || !DIFY_API_URL) {
   throw new Error('Missing Dify environment variables')

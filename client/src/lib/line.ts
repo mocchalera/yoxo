@@ -1,4 +1,4 @@
-const LINE_API_URL = process.env.VITE_LINE_API_URL
+const LINE_API_URL = import.meta.env.VITE_LINE_API_URL
 
 export async function generateLineQR(yoxoId: string): Promise<string> {
   const response = await fetch(`${LINE_API_URL}/qr`, {

@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { getCurrentUser } from "@/lib/supabase"
 
 interface QuestionnaireFormProps {
   section: {
@@ -46,13 +47,17 @@ export function QuestionnaireForm({
     try {
       setSubmitting(true)
       if (isLastSection) {
+        // Get current user if logged in
+        const user = await getCurrentUser();
+
         const response = await fetch('/api/submit-survey', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            responses: values.responses.map(Number)
+            responses: values.responses.map(Number),
+            userId: user?.id // Add user ID if available
           })
         })
 
@@ -120,7 +125,7 @@ export function QuestionnaireForm({
 
         {advice && (
           <Alert>
-            <AlertDescription>
+            <AlertDescription className="whitespace-pre-line">
               {advice}
             </AlertDescription>
           </Alert>

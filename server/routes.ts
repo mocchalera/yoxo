@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { responses } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { responses, users } from "@db/schema";
+import { eq, desc } from "drizzle-orm";
 
 const DIFY_API_KEY = process.env.VITE_DIFY_API_KEY;
 const DIFY_API_URL = process.env.VITE_DIFY_API_URL;
@@ -17,10 +17,32 @@ async function generateAdvice(scores: {
   mental_fatigue: number;
   fatigue_source: number;
   resilience: number;
-}): Promise<string | null> {
+}, userId?: number): Promise<string | null> {
   if (!DIFY_API_KEY || !DIFY_API_URL) return null;
 
   try {
+    // Get user's history if available
+    let historyContext = "";
+    if (userId) {
+      const previousResults = await db.query.responses.findMany({
+        where: eq(responses.user_id, userId),
+        orderBy: [desc(responses.created_at)],
+        limit: 5,
+      });
+
+      if (previousResults.length > 0) {
+        const trend = previousResults.map(r => r.calculated_scores.resilience);
+        const avgResilience = trend.reduce((a, b) => a + b, 0) / trend.length;
+        const improving = trend[0] > avgResilience;
+
+        historyContext = `
+        過去の測定結果との比較:
+        - レジリエンス傾向: ${improving ? "改善傾向" : "低下傾向"}
+        - 平均レジリエンス: ${avgResilience.toFixed(1)}
+        `;
+      }
+    }
+
     const response = await fetch(DIFY_API_URL, {
       method: 'POST',
       headers: {
@@ -30,14 +52,31 @@ async function generateAdvice(scores: {
       body: JSON.stringify({
         messages: [{
           role: 'user',
-          content: `Generate personalized advice in Japanese for: 
-            疲労タイプ: ${scores.fatigue_type}
-            脳疲労: ${scores.brain_fatigue}
-            心疲労: ${scores.mental_fatigue}
-            疲労源: ${scores.fatigue_source}
-            レジリエンス: ${scores.resilience}`
+          content: `
+            以下の測定結果に基づいて、具体的で実践的なアドバイスを日本語で提供してください：
+
+            現在の状態:
+            - 疲労タイプ: ${scores.fatigue_type}
+            - 脳疲労指数: ${scores.brain_fatigue.toFixed(1)}
+            - 心疲労指数: ${scores.mental_fatigue.toFixed(1)}
+            - 疲労源指数: ${scores.fatigue_source.toFixed(1)}
+            - レジリエンス: ${scores.resilience.toFixed(1)}
+
+            ${historyContext}
+
+            アドバイスの要件:
+            1. 現在の疲労状態を簡潔に説明
+            2. 即実践できる具体的な改善アクション（3つ程度）
+            3. 前向きで励みになるメッセージ
+
+            フォーマット:
+            • 現状の解説
+            • 具体的なアドバイス（箇条書き）
+            • 励ましのメッセージ`
         }],
         response_mode: 'blocking',
+        temperature: 0.7,
+        top_p: 0.9,
       }),
     });
 
@@ -106,8 +145,9 @@ export function registerRoutes(app: Express): Server {
         resilience: resilience
       };
 
-      // Get personalized advice
-      const advice = await generateAdvice(calculatedScores);
+      // Get personalized advice with user context if available
+      const userId = req.body.userId;
+      const advice = await generateAdvice(calculatedScores, userId);
 
       await db.insert(responses).values({
         yoxo_id: yoxoId,
@@ -147,6 +187,53 @@ export function registerRoutes(app: Express): Server {
       });
     } catch (error) {
       console.error('Error fetching results:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Dashboard data
+  app.get('/api/dashboard', async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
+      // Get user's measurement history
+      const results = await db.query.responses.findMany({
+        where: eq(responses.user_id, parseInt(userId)),
+        orderBy: [desc(responses.created_at)],
+        limit: 30, // Last 30 days
+      });
+
+      // Calculate statistics
+      const stats = {
+        total_measurements: results.length,
+        avg_resilience: results.reduce((acc, curr) => 
+          acc + curr.calculated_scores.resilience, 0) / results.length,
+        common_fatigue_type: results
+          .map(r => r.calculated_scores.fatigue_type)
+          .reduce((acc: { [key: string]: number }, curr) => {
+            acc[curr] = (acc[curr] || 0) + 1;
+            return acc;
+          }, {})
+      };
+
+      const history = results.map(r => ({
+        date: r.created_at,
+        ...r.calculated_scores
+      }));
+
+      res.json({
+        history,
+        stats: {
+          ...stats,
+          common_fatigue_type: Object.entries(stats.common_fatigue_type)
+            .sort((a, b) => b[1] - a[1])[0][0]
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
