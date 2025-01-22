@@ -1,12 +1,14 @@
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getCurrentUser } from "@/lib/supabase"
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
 
 interface QuestionnaireFormProps {
   section: {
@@ -19,6 +21,12 @@ interface QuestionnaireFormProps {
   isLastSection: boolean
 }
 
+const formSchema = (questionsLength: number) => z.object({
+  responses: z.array(
+    z.string().min(1, "この質問は回答必須です")
+  ).length(questionsLength, "すべての質問に回答してください")
+})
+
 export function QuestionnaireForm({
   section,
   onComplete,
@@ -28,7 +36,9 @@ export function QuestionnaireForm({
   const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
   const [advice, setAdvice] = useState<string | null>(null)
+
   const form = useForm({
+    resolver: zodResolver(formSchema(section.questions.length)),
     defaultValues: {
       responses: Array(section.questions.length).fill("")
     }
@@ -127,6 +137,7 @@ export function QuestionnaireForm({
                     ))}
                   </RadioGroup>
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />
