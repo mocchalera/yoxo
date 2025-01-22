@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import session from "express-session";
 import { db } from "@db";
 import { responses, users } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -21,7 +22,6 @@ async function generateAdvice(scores: {
   if (!DIFY_API_KEY || !DIFY_API_URL) return null;
 
   try {
-    // Get user's history if available
     let historyContext = "";
     if (userId) {
       const previousResults = await db.query.responses.findMany({
@@ -91,19 +91,28 @@ async function generateAdvice(scores: {
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
 
-  // Submit survey responses
+  // セッション設定を追加
+  app.use(
+    session({
+      secret: 'your-secret-key', // Replace with a strong, randomly generated secret
+      resave: false,
+      saveUninitialized: true,
+      cookie: { secure: process.env.NODE_ENV === 'production' }
+    })
+  );
+
+  // Submit survey responses - ゲストユーザーでも送信可能に修正
   app.post('/api/submit-survey', async (req, res) => {
     try {
-      console.log('Received survey submission:', req.body); // デバッグログ
+      console.log('Received survey submission:', req.body); 
 
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
       const section1 = req.body.responses.slice(0, 6);
       const section2 = req.body.responses.slice(6, 12);
       const section3 = req.body.responses.slice(12, 16);
 
-      console.log('Parsed sections:', { section1, section2, section3 }); // デバッグログ
+      console.log('Parsed sections:', { section1, section2, section3 }); 
 
-      // Calculate scores based on questionnaire spec
       const calculateScore = (responses: number[]) => {
         const avg = responses.reduce((a, b) => a + b, 0) / responses.length;
         return (avg - 1) * 25;
@@ -119,9 +128,8 @@ export function registerRoutes(app: Express): Server {
         mentalFatigue, 
         brainFatigue, 
         resilience 
-      }); // デバッグログ
+      }); 
 
-      // Determine fatigue type
       const getFatigueType = (mental: number, brain: number) => {
         const levels = ['低', '中', '高'];
         const getMentalLevel = (score: number) => {
@@ -156,9 +164,8 @@ export function registerRoutes(app: Express): Server {
         resilience: resilience
       };
 
-      // Get personalized advice with user context if available
-      const userId = req.body.userId;
-      console.log('User ID for advice:', userId); // デバッグログ
+      const userId = req.body.userId || null;
+      console.log('User ID for advice:', userId); 
       const advice = await generateAdvice(calculatedScores, userId);
 
       const response = await db.insert(responses).values({
@@ -170,7 +177,7 @@ export function registerRoutes(app: Express): Server {
         calculated_scores: calculatedScores
       });
 
-      console.log('Database insert response:', response); // デバッグログ
+      console.log('Database insert response:', response); 
 
       res.json({ 
         yoxoId,
@@ -185,7 +192,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get results by ID
   app.get('/api/results/:yoxoId', async (req, res) => {
     try {
       const result = await db.query.responses.findFirst({
@@ -209,7 +215,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Dashboard data
+
   app.get('/api/dashboard', async (req, res) => {
     try {
       const userId = req.query.userId as string;
@@ -217,14 +223,12 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "User ID is required" });
       }
 
-      // Get user's measurement history
       const results = await db.query.responses.findMany({
         where: eq(responses.user_id, parseInt(userId)),
         orderBy: [desc(responses.created_at)],
-        limit: 30, // Last 30 days
+        limit: 30, 
       });
 
-      // Calculate statistics
       const stats = {
         total_measurements: results.length,
         avg_resilience: results.reduce((acc, curr) => 

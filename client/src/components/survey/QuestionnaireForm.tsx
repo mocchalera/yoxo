@@ -40,7 +40,15 @@ export function QuestionnaireForm({
       setSubmitting(true)
 
       if (isLastSection) {
-        const user = await getCurrentUser()
+        let userId = null;
+        try {
+          const user = await getCurrentUser();
+          if (user) {
+            userId = user.id;
+          }
+        } catch (error) {
+          console.log('No authenticated user, proceeding as guest');
+        }
 
         const response = await fetch('/api/submit-survey', {
           method: 'POST',
@@ -49,7 +57,7 @@ export function QuestionnaireForm({
           },
           body: JSON.stringify({
             responses: values.responses.map(Number),
-            userId: user?.id
+            userId
           })
         })
 
