@@ -7,17 +7,11 @@ import { eq } from "drizzle-orm";
 import MemoryStore from "memorystore";
 import { createClient } from '@supabase/supabase-js';
 
-declare module 'express-session' {
-  interface SessionData {
-    userId?: number;
-  }
-}
-
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('Supabase環境変数が設定されていません。認証機能は無効化されます。');
+  console.warn('Supabase環境変数が設定されていません。');
 }
 
 const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
@@ -32,17 +26,16 @@ export function registerRoutes(app: Express): Server {
       resave: false,
       saveUninitialized: false,
       store: new MemoryStoreSession({
-        checkPeriod: 86400000 // 24時間でメモリをクリア
+        checkPeriod: 86400000
       }),
       cookie: { 
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 24時間
+        maxAge: 24 * 60 * 60 * 1000
       }
     })
   );
 
-  // アンケート結果の送信エンドポイント
   app.post('/api/submit-survey', async (req, res) => {
     try {
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
@@ -50,7 +43,6 @@ export function registerRoutes(app: Express): Server {
       const section2 = req.body.responses.slice(6, 12);
       const section3 = req.body.responses.slice(12, 16);
 
-      // スコアの計算
       const calculateScore = (responses: number[]) => {
         const sum = responses.reduce((a, b) => a + b, 0);
         return sum === 0 ? 0 : ((sum / responses.length) - 1) * 25;
@@ -100,6 +92,25 @@ export function registerRoutes(app: Express): Server {
           const { data: supabaseUser, error } = await supabase.auth.getUser(req.body.supabaseId);
           if (error) throw error;
 
+          // Supabaseにデータを保存
+          const { error: insertError } = await supabase
+            .from('survey_responses')
+            .insert({
+              yoxo_id: yoxoId,
+              user_id: supabaseUser.user.id,
+              section1_responses: section1,
+              section2_responses: section2,
+              section3_responses: section3,
+              calculated_scores: calculatedScores,
+              created_at: new Date().toISOString()
+            });
+
+          if (insertError) {
+            console.error('Error inserting to Supabase:', insertError);
+            // エラーがあってもPostgreSQLへの保存は継続
+          }
+
+          // ユーザー情報の取得・作成
           const user = await db.query.users.findFirst({
             where: eq(users.supabase_id, supabaseUser.user.id)
           });
@@ -108,7 +119,6 @@ export function registerRoutes(app: Express): Server {
             userId = user.id;
             req.session.userId = user.id;
           } else {
-            // 新規ユーザーの作成
             const [newUser] = await db.insert(users)
               .values({
                 supabase_id: supabaseUser.user.id,
@@ -120,10 +130,11 @@ export function registerRoutes(app: Express): Server {
           }
         } catch (error) {
           console.error('Error validating Supabase user:', error);
+          // エラーがあってもPostgreSQLへの保存は継続
         }
       }
 
-      // データベースに保存
+      // PostgreSQLにも保存
       const [response] = await db.insert(responses).values({
         yoxo_id: yoxoId,
         user_id: userId,
