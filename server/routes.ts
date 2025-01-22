@@ -90,71 +90,37 @@ export function registerRoutes(app: Express): Server {
         resilience: resilience
       };
 
-      let userId = req.session.userId || null;
-
-      // Supabaseユーザー情報があれば、そのユーザーIDを使用
-      if (req.body.supabaseId) {
-        try {
-          const { data: supabaseUser, error } = await supabase.auth.getUser(req.body.supabaseId);
-          if (error) throw error;
-
-          // Supabase data store
-          const [newResponse] = await db.insert(survey_responses).values({
-            yoxo_id: yoxoId,
-            user_id: supabaseUser.user.id,
-            section1_responses: section1,
-            section2_responses: section2,
-            section3_responses: section3,
-            calculated_scores: calculatedScores
-          }).returning();
-
-          // ユーザー情報の取得・作成
-          const user = await db.query.users.findFirst({
-            where: eq(users.supabase_id, supabaseUser.user.id)
-          });
-
-          if (user) {
-            userId = user.id.toString();
-            req.session.userId = user.id.toString();
-          } else {
-            const [newUser] = await db.insert(users)
-              .values({
-                supabase_id: supabaseUser.user.id,
-                created_at: new Date()
-              })
-              .returning();
-            userId = newUser.id.toString();
-            req.session.userId = newUser.id.toString();
-          }
-        } catch (error) {
-          console.error('Error validating Supabase user:', error);
-        }
-      } else {
+      try {
         // Guest user submission
         const [newResponse] = await db.insert(survey_responses).values({
           yoxo_id: yoxoId,
-          user_id: 'guest',
+          user_id: req.body.supabaseId || 'guest',
           section1_responses: section1,
           section2_responses: section2,
           section3_responses: section3,
           calculated_scores: calculatedScores
         }).returning();
-      }
 
-      res.json({
-        yoxoId,
-        scores: calculatedScores
-      });
+        res.json({
+          yoxoId,
+          scores: calculatedScores
+        });
+      } catch (dbError) {
+        console.error('Database error:', dbError);
+        res.status(500).json({
+          message: "データベースエラー",
+          error: dbError instanceof Error ? dbError.message : "不明なエラー"
+        });
+      }
     } catch (error) {
       console.error('Error submitting survey:', error);
       res.status(500).json({
-        message: "Internal server error",
-        error: error instanceof Error ? error.message : String(error)
+        message: "アンケート送信中にエラーが発生しました",
+        error: error instanceof Error ? error.message : "不明なエラー"
       });
     }
   });
 
-  // 結果の取得エンドポイント
   app.get('/api/results/:yoxoId', async (req, res) => {
     try {
       const result = await db.query.survey_responses.findFirst({
@@ -162,13 +128,16 @@ export function registerRoutes(app: Express): Server {
       });
 
       if (!result) {
-        return res.status(404).json({ message: "Results not found" });
+        return res.status(404).json({ message: "結果が見つかりませんでした" });
       }
 
       res.json(result.calculated_scores);
     } catch (error) {
       console.error('Error fetching results:', error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ 
+        message: "結果の取得中にエラーが発生しました",
+        error: error instanceof Error ? error.message : "不明なエラー"
+      });
     }
   });
 
