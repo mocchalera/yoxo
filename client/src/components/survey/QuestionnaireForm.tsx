@@ -34,25 +34,29 @@ export function QuestionnaireForm({
 
   // フォームのバリデーションスキーマを作成
   const formSchema = z.object({
-    responses: z.array(z.string().regex(/^[1-4]$/)).length(section.questions.length)
+    responses: z.array(z.string())
   })
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       responses: Array(section.questions.length).fill("")
-    }
+    },
+    mode: "onChange"
   })
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      console.log('Form submitted with values:', values); // デバッグログ
+      console.log('Form submitted with values:', values)
+      if (!values.responses.every(r => r)) {
+        throw new Error('すべての質問に回答してください')
+      }
+
       setSubmitting(true)
 
       if (isLastSection) {
-        // Get current user if logged in
-        const user = await getCurrentUser();
-        console.log('Current user:', user); // デバッグログ
+        const user = await getCurrentUser()
+        console.log('Current user:', user)
 
         const response = await fetch('/api/submit-survey', {
           method: 'POST',
@@ -66,17 +70,16 @@ export function QuestionnaireForm({
         })
 
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Survey submission failed:', errorText); // デバッグログ
-          throw new Error(errorText || '提出に失敗しました');
+          const errorText = await response.text()
+          console.error('Survey submission failed:', errorText)
+          throw new Error(errorText || '提出に失敗しました')
         }
 
         const data = await response.json()
-        console.log('Survey submission response:', data); // デバッグログ
+        console.log('Survey submission response:', data)
 
         if (data.advice) {
           setAdvice(data.advice)
-          // Show advice for 5 seconds before redirecting
           setTimeout(() => {
             onComplete(data.yoxoId)
           }, 5000)
@@ -99,8 +102,15 @@ export function QuestionnaireForm({
     }
   }
 
-  // フォームのバリデーションエラーをログに出力
-  console.log('Form errors:', form.formState.errors); // デバッグログ
+  // デバッグ情報の出力
+  console.log('Form validation state:', {
+    isValid: form.formState.isValid,
+    errors: form.formState.errors,
+    values: form.getValues(),
+    isDirty: form.formState.isDirty
+  })
+
+  const isFormValid = form.getValues().responses.every(r => r !== "")
 
   return (
     <Form {...form}>
@@ -150,7 +160,7 @@ export function QuestionnaireForm({
           <Button 
             type="submit" 
             className="w-full"
-            disabled={!form.formState.isValid}
+            disabled={!isFormValid}
           >
             {isLastSection ? "測定完了" : "次へ"}
           </Button>
