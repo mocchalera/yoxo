@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -6,7 +6,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   supabase_id: text("supabase_id").unique().notNull(),
   line_id: text("line_id").unique(),
-  created_at: timestamp("created_at").defaultNow(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 export const survey_responses = pgTable("survey_responses", {
@@ -23,14 +23,14 @@ export const survey_responses = pgTable("survey_responses", {
     fatigue_source: number;
     resilience: number;
   }>().notNull(),
-  created_at: timestamp("created_at").defaultNow(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   user_id: text("user_id").notNull(),  // Supabase user ID
   dify_message: text("dify_message").notNull(),
-  created_at: timestamp("created_at").defaultNow(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 // Zod schemas for validation
