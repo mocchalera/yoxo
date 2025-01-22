@@ -2,10 +2,16 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import { db } from "@db";
-import { responses, users } from "@db/schema";
+import { survey_responses, users } from "@db/schema";
 import { eq } from "drizzle-orm";
 import MemoryStore from "memorystore";
 import { createClient } from '@supabase/supabase-js';
+
+declare module 'express-session' {
+  interface SessionData {
+    userId: string;
+  }
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -92,23 +98,15 @@ export function registerRoutes(app: Express): Server {
           const { data: supabaseUser, error } = await supabase.auth.getUser(req.body.supabaseId);
           if (error) throw error;
 
-          // Supabaseにデータを保存
-          const { error: insertError } = await supabase
-            .from('survey_responses')
-            .insert({
-              yoxo_id: yoxoId,
-              user_id: supabaseUser.user.id,
-              section1_responses: section1,
-              section2_responses: section2,
-              section3_responses: section3,
-              calculated_scores: calculatedScores,
-              created_at: new Date().toISOString()
-            });
-
-          if (insertError) {
-            console.error('Error inserting to Supabase:', insertError);
-            // エラーがあってもPostgreSQLへの保存は継続
-          }
+          // Supabase data store
+          const [newResponse] = await db.insert(survey_responses).values({
+            yoxo_id: yoxoId,
+            user_id: supabaseUser.user.id,
+            section1_responses: section1,
+            section2_responses: section2,
+            section3_responses: section3,
+            calculated_scores: calculatedScores
+          }).returning();
 
           // ユーザー情報の取得・作成
           const user = await db.query.users.findFirst({
@@ -116,8 +114,8 @@ export function registerRoutes(app: Express): Server {
           });
 
           if (user) {
-            userId = user.id;
-            req.session.userId = user.id;
+            userId = user.id.toString();
+            req.session.userId = user.id.toString();
           } else {
             const [newUser] = await db.insert(users)
               .values({
@@ -125,24 +123,23 @@ export function registerRoutes(app: Express): Server {
                 created_at: new Date()
               })
               .returning();
-            userId = newUser.id;
-            req.session.userId = newUser.id;
+            userId = newUser.id.toString();
+            req.session.userId = newUser.id.toString();
           }
         } catch (error) {
           console.error('Error validating Supabase user:', error);
-          // エラーがあってもPostgreSQLへの保存は継続
         }
+      } else {
+        // Guest user submission
+        const [newResponse] = await db.insert(survey_responses).values({
+          yoxo_id: yoxoId,
+          user_id: 'guest',
+          section1_responses: section1,
+          section2_responses: section2,
+          section3_responses: section3,
+          calculated_scores: calculatedScores
+        }).returning();
       }
-
-      // PostgreSQLにも保存
-      const [response] = await db.insert(responses).values({
-        yoxo_id: yoxoId,
-        user_id: userId,
-        section1_responses: section1,
-        section2_responses: section2,
-        section3_responses: section3,
-        calculated_scores: calculatedScores
-      }).returning();
 
       res.json({
         yoxoId,
@@ -160,8 +157,8 @@ export function registerRoutes(app: Express): Server {
   // 結果の取得エンドポイント
   app.get('/api/results/:yoxoId', async (req, res) => {
     try {
-      const result = await db.query.responses.findFirst({
-        where: eq(responses.yoxo_id, req.params.yoxoId)
+      const result = await db.query.survey_responses.findFirst({
+        where: eq(survey_responses.yoxo_id, req.params.yoxoId)
       });
 
       if (!result) {
@@ -172,66 +169,6 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error('Error fetching results:', error);
       res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // 認証状態の確認エンドポイント
-  app.get('/api/auth/me', async (req, res) => {
-    try {
-      const userId = req.session.userId;
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId)
-      });
-
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
-      }
-
-      res.json(user);
-    } catch (error) {
-      console.error('Error fetching user:', error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Supabaseのユーザー情報をDBと同期するエンドポイント
-  app.post('/api/auth/sync', async (req, res) => {
-    try {
-      const { supabase_id } = req.body;
-      if (!supabase_id) {
-        return res.status(400).json({ message: "Supabase ID is required" });
-      }
-
-      // Supabaseでユーザーを検証
-      const { data: supabaseUser, error: supabaseError } = await supabase.auth.getUser(supabase_id);
-      if (supabaseError || !supabaseUser) {
-        return res.status(401).json({ message: "Invalid Supabase user" });
-      }
-
-      let user = await db.query.users.findFirst({
-        where: eq(users.supabase_id, supabase_id)
-      });
-
-      if (!user) {
-        const [newUser] = await db.insert(users).values({
-          supabase_id,
-          created_at: new Date()
-        }).returning();
-        user = newUser;
-      }
-
-      req.session.userId = user.id;
-      res.json(user);
-    } catch (error) {
-      console.error('Error syncing user:', error);
-      res.status(500).json({ 
-        message: "Internal server error",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
     }
   });
 

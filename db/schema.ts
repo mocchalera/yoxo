@@ -9,10 +9,10 @@ export const users = pgTable("users", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
-export const responses = pgTable("responses", {
+export const survey_responses = pgTable("survey_responses", {
   id: serial("id").primaryKey(),
   yoxo_id: text("yoxo_id").unique().notNull(),
-  user_id: integer("user_id").references(() => users.id),
+  user_id: text("user_id").notNull(),  // Supabase user ID
   section1_responses: jsonb("section1_responses").$type<number[]>().notNull(),
   section2_responses: jsonb("section2_responses").$type<number[]>().notNull(),
   section3_responses: jsonb("section3_responses").$type<number[]>().notNull(),
@@ -28,7 +28,7 @@ export const responses = pgTable("responses", {
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
-  user_id: integer("user_id").references(() => users.id),
+  user_id: text("user_id").notNull(),  // Supabase user ID
   dify_message: text("dify_message").notNull(),
   created_at: timestamp("created_at").defaultNow(),
 });
@@ -45,5 +45,5 @@ export const responseSchema = z.object({
 
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
-export type Response = typeof responses.$inferSelect;
+export type SurveyResponse = typeof survey_responses.$inferSelect;
 export type Message = typeof messages.$inferSelect;
