@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import ws from "ws";
+import postgres from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@db/schema";
 
 if (!process.env.SUPABASE_DB_URL) {
@@ -8,9 +8,16 @@ if (!process.env.SUPABASE_DB_URL) {
   );
 }
 
-const connectionString = process.env.SUPABASE_DB_URL;
+const { Pool } = postgres;
 
-export const db = drizzle(connectionString, {
+const pool = new Pool({
+  connectionString: process.env.SUPABASE_DB_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+export const db = drizzle(pool, {
   schema,
   logger: true,
 });

@@ -85,12 +85,21 @@ export function registerRoutes(app: Express): Server {
     try {
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
       const responses = req.body.responses;
+      const userId = req.body.supabaseId;
 
       // バリデーション
       if (!Array.isArray(responses) || responses.length !== 16) {
         return res.status(400).json({
           message: "無効な回答データです",
           error: "回答は16個である必要があります"
+        });
+      }
+
+      // UUIDの検証
+      if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+        return res.status(400).json({
+          message: "無効なユーザーIDです",
+          error: "有効なUUIDが必要です"
         });
       }
 
@@ -140,8 +149,6 @@ export function registerRoutes(app: Express): Server {
       };
 
       try {
-        const userId = req.body.supabaseId || '00000000-0000-0000-0000-000000000000';
-
         console.log('Attempting to save survey response:', {
           yoxo_id: yoxoId,
           user_id: userId,
@@ -170,14 +177,14 @@ export function registerRoutes(app: Express): Server {
         console.error('Database error details:', dbError);
         res.status(500).json({
           message: "データベースエラー",
-          error: dbError instanceof Error ? dbError.message : JSON.stringify(dbError)
+          error: dbError instanceof Error ? dbError.message : String(dbError)
         });
       }
     } catch (error) {
       console.error('Error submitting survey:', error);
       res.status(500).json({
         message: "アンケート送信中にエラーが発生しました",
-        error: error instanceof Error ? error.message : JSON.stringify(error)
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });

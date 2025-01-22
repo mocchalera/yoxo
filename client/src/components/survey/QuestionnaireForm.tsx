@@ -68,13 +68,13 @@ export function QuestionnaireForm({
             credentials: 'include'
           })
 
+          const data = await response.json()
+
           if (!response.ok) {
-            const errorData = await response.json()
-            console.error('Server error:', errorData)
-            throw new Error(errorData.message || errorData.error || '送信に失敗しました')
+            console.error('Server error:', data)
+            throw new Error(data.message || data.error || '送信に失敗しました')
           }
 
-          const data = await response.json()
           console.log('Server response:', data)
 
           sessionStorage.removeItem('survey_responses')
