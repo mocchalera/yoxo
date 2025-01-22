@@ -35,13 +35,12 @@ export function QuestionnaireForm({
     }
   })
 
-  const onSubmit = async () => {
+  const onSubmit = async (values: { responses: string[] }) => {
     try {
-      const responses = form.getValues().responses
-      console.log('Submitting responses:', responses)
+      console.log('Submitting responses:', values.responses)
 
       // Check if all questions are answered
-      const emptyResponses = responses.filter(r => !r)
+      const emptyResponses = values.responses.filter(r => !r)
       console.log('Empty responses:', emptyResponses)
 
       if (emptyResponses.length > 0) {
@@ -64,7 +63,7 @@ export function QuestionnaireForm({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            responses: responses.map(Number),
+            responses: values.responses.map(Number),
             userId: user?.id
           })
         })
