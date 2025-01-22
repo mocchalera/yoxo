@@ -28,7 +28,7 @@ export function QuestionnaireForm({
   const [submitting, setSubmitting] = useState(false)
   const [advice, setAdvice] = useState<string | null>(null)
 
-  const progress = ((responses.length + 1) / section.questions.length) * 100
+  const progress = (responses.length / section.questions.length) * 100
 
   const handleAnswer = async (value: number) => {
     const newResponses = [...responses, value]
@@ -49,8 +49,12 @@ export function QuestionnaireForm({
             console.log('No authenticated user, proceeding as guest')
           }
 
-          const allResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
-          allResponses.push(...newResponses)
+          // 前のセクションの回答を取得
+          const previousResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
+          // 現在のセクションの回答を追加
+          const allResponses = [...previousResponses, ...newResponses]
+
+          console.log('Submitting responses:', allResponses) // デバッグ用
 
           const response = await fetch('/api/submit-survey', {
             method: 'POST',
@@ -80,12 +84,13 @@ export function QuestionnaireForm({
             onComplete(data.yoxoId)
           }
         } else {
-          const currentResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
-          currentResponses.push(...newResponses)
-          sessionStorage.setItem('survey_responses', JSON.stringify(currentResponses))
+          // 現在のセクションの回答を保存
+          const previousResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
+          sessionStorage.setItem('survey_responses', JSON.stringify([...previousResponses, ...newResponses]))
           onSectionComplete()
         }
       } catch (error) {
+        console.error('Error submitting survey:', error) // デバッグ用
         toast({
           title: "エラー",
           description: error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。",
@@ -113,6 +118,14 @@ export function QuestionnaireForm({
           onAnswer={handleAnswer}
           isLast={isLastSection && currentQuestionIndex === section.questions.length - 1}
         />
+      )}
+
+      {submitting && (
+        <Alert>
+          <AlertDescription>
+            送信中...
+          </AlertDescription>
+        </Alert>
       )}
 
       {advice && (
