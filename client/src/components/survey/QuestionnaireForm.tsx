@@ -68,11 +68,14 @@ export function QuestionnaireForm({
             credentials: 'include'
           })
 
-          const data = await response.json()
-
           if (!response.ok) {
-            throw new Error(data.message || data.error || '送信に失敗しました')
+            const errorData = await response.json()
+            console.error('Server error:', errorData)
+            throw new Error(errorData.message || errorData.error || '送信に失敗しました')
           }
+
+          const data = await response.json()
+          console.log('Server response:', data)
 
           sessionStorage.removeItem('survey_responses')
           setTimeout(() => {
@@ -85,7 +88,7 @@ export function QuestionnaireForm({
           onSectionComplete()
         }
       } catch (error) {
-        console.error('Error handling responses:', error)
+        console.error('Error details:', error)
         const errorMessage = error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。"
         setError(errorMessage)
         toast({

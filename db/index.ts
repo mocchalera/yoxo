@@ -10,18 +10,7 @@ if (!process.env.SUPABASE_DB_URL) {
 
 const connectionString = process.env.SUPABASE_DB_URL;
 
-// WebSocketのフォールバックオプションを設定
-const wsOptions = {
-  webSocket: ws,
-  connectionOptions: {
-    keepAlive: true,
-    keepAliveInitialDelay: 10000,
-    maxPayload: 100 * 1024 * 1024,
-  },
-};
-
 export const db = drizzle(connectionString, {
   schema,
   logger: true,
-  ...wsOptions,
 });
