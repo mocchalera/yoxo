@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-import fetch from 'node-fetch';
+import axios from 'axios';
 
 // 環境変数の確認
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
@@ -12,43 +11,36 @@ console.log('SUPABASE_URL exists:', !!process.env.SUPABASE_URL);
 console.log('SUPABASE_ANON_KEY exists:', !!process.env.SUPABASE_ANON_KEY);
 console.log('接続を開始します...');
 
-// Supabaseクライアントの初期化
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: true,
-  },
-  global: {
-    fetch: fetch as any
-  }
-});
-
 async function testConnection() {
   try {
-    console.log('認証状態を確認中...');
-    const { data: authData, error: authError } = await supabase.auth.getSession();
+    console.log('Supabaseに直接接続テスト中...');
 
-    if (authError) {
-      console.error('認証エラー:', authError);
-      return;
-    }
+    const headers = {
+      'apikey': process.env.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY}`
+    };
 
-    console.log('認証状態:', authData);
+    const response = await axios.get(`${process.env.SUPABASE_URL}/rest/v1/users?select=*&limit=1`, {
+      headers: headers
+    });
 
-    console.log('データベース接続をテスト中...');
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .limit(1);
-
-    if (error) {
-      console.error('データベースエラー:', error);
-      return;
-    }
-
-    console.log('接続テスト成功:', data);
+    console.log('接続テスト成功:', response.status);
+    console.log('レスポンスデータ:', response.data);
   } catch (error) {
-    console.error('テスト実行中にエラーが発生:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('接続エラー:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      });
+    } else {
+      console.error('予期せぬエラー:', error);
+    }
   }
 }
 
