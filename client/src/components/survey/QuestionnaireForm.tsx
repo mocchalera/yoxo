@@ -37,13 +37,18 @@ export function QuestionnaireForm({
 
   const onSubmit = async (values: { responses: string[] }) => {
     try {
-      console.log('Submitting responses:', values.responses)
-
       // Check if all questions are answered
-      const emptyResponses = values.responses.filter(r => !r)
-      console.log('Empty responses:', emptyResponses)
+      // RadioGroupの値は文字列の "1", "2", "3", "4" のいずれかになるはず
+      const validResponses = values.responses.every(response => 
+        ["1", "2", "3", "4"].includes(response)
+      )
 
-      if (emptyResponses.length > 0) {
+      console.log('Form validation:', {
+        responses: values.responses,
+        validResponses
+      })
+
+      if (!validResponses) {
         toast({
           title: "エラー",
           description: "すべての質問に回答してください",
