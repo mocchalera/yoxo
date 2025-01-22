@@ -41,7 +41,7 @@ export function QuestionnaireForm({
     const newResponses = [...responses, value]
     setResponses(newResponses)
 
-    if (newResponses.length === section.questions.length) {
+    if (currentQuestionIndex + 1 === section.questions.length) {
       try {
         setSubmitting(true)
 
@@ -61,7 +61,7 @@ export function QuestionnaireForm({
           // 現在のセクションの回答を追加
           const allResponses = [...previousResponses, ...newResponses]
 
-          console.log('Submitting final responses:', allResponses)
+          console.log('Submitting all responses:', allResponses)
 
           const response = await fetch('/api/submit-survey', {
             method: 'POST',
@@ -94,16 +94,17 @@ export function QuestionnaireForm({
           // 現在のセクションの回答を保存
           const previousResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
           sessionStorage.setItem('survey_responses', JSON.stringify([...previousResponses, ...newResponses]))
+          console.log('Saving section responses:', newResponses)
+          setSubmitting(false)
           onSectionComplete()
         }
       } catch (error) {
-        console.error('Error submitting survey:', error)
+        console.error('Error handling responses:', error)
         toast({
           title: "エラー",
           description: error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。",
           variant: "destructive"
         })
-      } finally {
         setSubmitting(false)
       }
     } else {
@@ -111,15 +112,16 @@ export function QuestionnaireForm({
     }
   }
 
+  // セクションが完了している場合は何も表示しない
   if (currentQuestionIndex >= section.questions.length) {
-    return null;
+    return null
   }
 
   return (
     <div className="space-y-6">
       <Progress value={progress} className="h-2" />
 
-      {!submitting && (
+      {!submitting && currentQuestionIndex < section.questions.length && (
         <QuestionCard
           question={section.questions[currentQuestionIndex]}
           sectionTitle={section.title}
