@@ -80,7 +80,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // 既存のルート
+  // アンケート回答の送信
   app.post('/api/submit-survey', async (req, res) => {
     try {
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
