@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { getCurrentUser } from "@/lib/supabase"
 import { Progress } from "@/components/ui/progress"
 import { QuestionCard } from "./QuestionCard"
+import { useAuth } from "@/lib/AuthContext"
 
 interface QuestionnaireFormProps {
   section: {
@@ -23,10 +23,11 @@ export function QuestionnaireForm({
   isLastSection
 }: QuestionnaireFormProps) {
   const { toast } = useToast()
+  const { user } = useAuth()
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [responses, setResponses] = useState<number[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const [advice, setAdvice] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const progress = (currentQuestionIndex / section.questions.length) * 100
 
@@ -34,7 +35,7 @@ export function QuestionnaireForm({
   useEffect(() => {
     setCurrentQuestionIndex(0)
     setResponses([])
-    setAdvice(null)
+    setError(null)
     setSubmitting(false)
   }, [section])
 
@@ -45,18 +46,9 @@ export function QuestionnaireForm({
     if (currentQuestionIndex + 1 === section.questions.length) {
       try {
         setSubmitting(true)
+        setError(null)
 
         if (isLastSection) {
-          let supabaseId = null
-          try {
-            const user = await getCurrentUser()
-            if (user) {
-              supabaseId = user.id
-            }
-          } catch (error) {
-            console.log('No authenticated user, proceeding as guest')
-          }
-
           // 前のセクションの回答を取得
           const previousResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
           // 現在のセクションの回答を追加
@@ -69,13 +61,13 @@ export function QuestionnaireForm({
             },
             body: JSON.stringify({
               responses: allResponses,
-              supabaseId
+              supabaseId: user?.id
             })
           })
 
           if (!response.ok) {
             const errorText = await response.text()
-            throw new Error(errorText || '提出に失敗しました')
+            throw new Error(errorText || '送信に失敗しました')
           }
 
           const data = await response.json()
@@ -97,6 +89,7 @@ export function QuestionnaireForm({
         }
       } catch (error) {
         console.error('Error handling responses:', error)
+        setError(error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。")
         toast({
           title: "エラー",
           description: error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。",
@@ -112,6 +105,12 @@ export function QuestionnaireForm({
   return (
     <div className="space-y-6">
       <Progress value={progress} className="h-2" />
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {!submitting && currentQuestionIndex < section.questions.length && (
         <QuestionCard
@@ -129,14 +128,6 @@ export function QuestionnaireForm({
         <Alert>
           <AlertDescription>
             送信中...
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {advice && (
-        <Alert>
-          <AlertDescription className="whitespace-pre-line">
-            {advice}
           </AlertDescription>
         </Alert>
       )}

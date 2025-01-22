@@ -33,6 +33,17 @@ export async function getCurrentUser() {
   }
 }
 
+export async function signOut() {
+  try {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Error signing out:', error)
+    return false
+  }
+}
+
 // サーバーとの同期を確認
 export async function checkAuthSync() {
   try {
