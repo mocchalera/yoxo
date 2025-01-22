@@ -10,15 +10,18 @@ if (!process.env.DATABASE_URL) {
 
 console.log('Supabaseデータベースへの接続を開始します...');
 
-const pool = new Pool({
+const connectionConfig = {
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false
+    rejectUnauthorized: false,
+    ca: process.env.SSL_CERT,
   },
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-});
+};
+
+const pool = new Pool(connectionConfig);
 
 // 接続テスト
 pool.on('connect', () => {
@@ -29,16 +32,31 @@ pool.on('error', (err) => {
   console.error('予期せぬデータベースエラー:', err);
 });
 
+// エラーハンドリングを強化
+pool.on('acquire', (client) => {
+  console.log('新しい接続を確立しました');
+});
+
+pool.on('remove', () => {
+  console.log('接続プールからクライアントを削除しました');
+});
+
 export const db = drizzle(pool, {
   schema,
   logger: true,
 });
 
 // 初期接続テスト
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('データベース接続エラー:', err);
-  } else {
-    console.log('データベース接続テスト成功:', res.rows[0]);
-  }
-});
+pool.connect()
+  .then(client => {
+    console.log('データベース接続テスト成功');
+    client.release();
+  })
+  .catch(err => {
+    console.error('データベース接続エラー:', {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      stack: err.stack
+    });
+  });
