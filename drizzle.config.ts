@@ -1,7 +1,7 @@
 import { defineConfig } from "drizzle-kit";
 
 if (!process.env.SUPABASE_DB_URL) {
-  throw new Error("SUPABASE_DB_URL environment variable is not set");
+  throw new Error("SUPABASE_DB_URL環境変数が設定されていません");
 }
 
 export default defineConfig({
