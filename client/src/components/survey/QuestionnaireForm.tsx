@@ -32,20 +32,13 @@ export function QuestionnaireForm({
   const [submitting, setSubmitting] = useState(false)
   const [advice, setAdvice] = useState<string | null>(null)
 
-  // フォームのバリデーションスキーマを作成
-  const formSchema = z.object({
-    responses: z.array(z.string())
-  })
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm({
     defaultValues: {
       responses: Array(section.questions.length).fill("")
-    },
-    mode: "onChange"
+    }
   })
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: { responses: string[] }) => {
     try {
       console.log('Form submitted with values:', values)
       if (!values.responses.every(r => r)) {
@@ -104,8 +97,6 @@ export function QuestionnaireForm({
 
   // デバッグ情報の出力
   console.log('Form validation state:', {
-    isValid: form.formState.isValid,
-    errors: form.formState.errors,
     values: form.getValues(),
     isDirty: form.formState.isDirty
   })
@@ -160,7 +151,6 @@ export function QuestionnaireForm({
           <Button 
             type="submit" 
             className="w-full"
-            disabled={!isFormValid}
           >
             {isLastSection ? "測定完了" : "次へ"}
           </Button>
