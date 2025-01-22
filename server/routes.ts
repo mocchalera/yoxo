@@ -85,21 +85,13 @@ export function registerRoutes(app: Express): Server {
     try {
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
       const responses = req.body.responses;
-      const userId = req.body.supabaseId;
+      const userId = req.body.supabaseId || GUEST_USER_ID;
 
       // バリデーション
       if (!Array.isArray(responses) || responses.length !== 16) {
         return res.status(400).json({
           message: "無効な回答データです",
           error: "回答は16個である必要があります"
-        });
-      }
-
-      // UUIDの検証
-      if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
-        return res.status(400).json({
-          message: "無効なユーザーIDです",
-          error: "有効なUUIDが必要です"
         });
       }
 
