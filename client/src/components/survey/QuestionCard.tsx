@@ -59,23 +59,27 @@ export function QuestionCard({
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="text-lg font-medium">{question}</div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-4 gap-2">
               {[1, 2, 3, 4].map((value) => (
                 <Button
                   key={value}
                   variant="outline"
                   size="lg"
                   className={cn(
-                    "h-24 text-2xl relative",
+                    "h-20 text-xl relative",
                     selected === value && "border-primary ring-2 ring-primary ring-offset-2"
                   )}
                   onClick={() => handleSelect(value)}
                 >
-                  {value}
-                  {value === 1 && <span className="absolute text-xs bottom-2">全く当てはまらない</span>}
-                  {value === 2 && <span className="absolute text-xs bottom-2">あまり当てはまらない</span>}
-                  {value === 3 && <span className="absolute text-xs bottom-2">やや当てはまる</span>}
-                  {value === 4 && <span className="absolute text-xs bottom-2">とても当てはまる</span>}
+                  <div className="flex flex-col items-center gap-1">
+                    <span>{value}</span>
+                    <span className="text-[10px] text-muted-foreground absolute bottom-1">
+                      {value === 1 && "全く当てはまらない"}
+                      {value === 2 && "あまり当てはまらない"}
+                      {value === 3 && "やや当てはまる"}
+                      {value === 4 && "とても当てはまる"}
+                    </span>
+                  </div>
                 </Button>
               ))}
             </div>
