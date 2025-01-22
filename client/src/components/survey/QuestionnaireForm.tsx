@@ -49,10 +49,13 @@ export function QuestionnaireForm({
         setError(null)
 
         if (isLastSection) {
-          // 前のセクションの回答を取得
           const previousResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
-          // 現在のセクションの回答を追加
           const allResponses = [...previousResponses, ...newResponses]
+
+          console.log('Submitting survey responses:', {
+            responses: allResponses,
+            supabaseId: user?.id
+          });
 
           const response = await fetch('/api/submit-survey', {
             method: 'POST',
@@ -65,12 +68,12 @@ export function QuestionnaireForm({
             })
           })
 
+          const data = await response.json()
+
           if (!response.ok) {
-            const errorText = await response.text()
-            throw new Error(errorText || '送信に失敗しました')
+            throw new Error(data.error || data.message || '送信に失敗しました')
           }
 
-          const data = await response.json()
           sessionStorage.removeItem('survey_responses')
 
           if (data.scores) {
@@ -81,7 +84,6 @@ export function QuestionnaireForm({
             onComplete(data.yoxoId)
           }
         } else {
-          // 現在のセクションの回答を保存
           const previousResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
           sessionStorage.setItem('survey_responses', JSON.stringify([...previousResponses, ...newResponses]))
           setSubmitting(false)
@@ -89,10 +91,11 @@ export function QuestionnaireForm({
         }
       } catch (error) {
         console.error('Error handling responses:', error)
-        setError(error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。")
+        const errorMessage = error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。"
+        setError(errorMessage)
         toast({
           title: "エラー",
-          description: error instanceof Error ? error.message : "送信に失敗しました。もう一度お試しください。",
+          description: errorMessage,
           variant: "destructive"
         })
         setSubmitting(false)

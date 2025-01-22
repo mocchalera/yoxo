@@ -91,7 +91,14 @@ export function registerRoutes(app: Express): Server {
       };
 
       try {
-        // Guest user submission
+        console.log('Attempting to save survey response:', {
+          yoxo_id: yoxoId,
+          user_id: req.body.supabaseId || 'guest',
+          section1_responses: section1,
+          section2_responses: section2,
+          section3_responses: section3
+        });
+
         const [newResponse] = await db.insert(survey_responses).values({
           yoxo_id: yoxoId,
           user_id: req.body.supabaseId || 'guest',
@@ -101,22 +108,24 @@ export function registerRoutes(app: Express): Server {
           calculated_scores: calculatedScores
         }).returning();
 
+        console.log('Successfully saved survey response:', newResponse);
+
         res.json({
           yoxoId,
           scores: calculatedScores
         });
       } catch (dbError) {
-        console.error('Database error:', dbError);
+        console.error('Database error details:', dbError);
         res.status(500).json({
           message: "データベースエラー",
-          error: dbError instanceof Error ? dbError.message : "不明なエラー"
+          error: dbError instanceof Error ? dbError.message : JSON.stringify(dbError)
         });
       }
     } catch (error) {
       console.error('Error submitting survey:', error);
       res.status(500).json({
         message: "アンケート送信中にエラーが発生しました",
-        error: error instanceof Error ? error.message : "不明なエラー"
+        error: error instanceof Error ? error.message : JSON.stringify(error)
       });
     }
   });

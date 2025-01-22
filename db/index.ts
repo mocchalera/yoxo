@@ -2,14 +2,14 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
 import * as schema from "@db/schema";
 
-if (!process.env.SUPABASE_DB_URL) {
+if (!process.env.DATABASE_URL) {
   throw new Error(
-    "SUPABASE_DB_URL must be set. Did you forget to set up the Supabase database URL?",
+    "DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
 export const db = drizzle({
-  connection: process.env.SUPABASE_DB_URL,
+  connection: process.env.DATABASE_URL,
   schema,
   ws: ws,
 });
