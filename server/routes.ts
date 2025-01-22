@@ -140,7 +140,7 @@ export function registerRoutes(app: Express): Server {
       };
 
       try {
-        const userId = req.body.supabaseId || GUEST_USER_ID;
+        const userId = req.body.supabaseId || '00000000-0000-0000-0000-000000000000';
 
         console.log('Attempting to save survey response:', {
           yoxo_id: yoxoId,

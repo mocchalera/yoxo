@@ -31,7 +31,6 @@ export function QuestionnaireForm({
 
   const progress = (currentQuestionIndex / section.questions.length) * 100
 
-  // セクションが変更されたときに状態をリセット
   useEffect(() => {
     setCurrentQuestionIndex(0)
     setResponses([])
