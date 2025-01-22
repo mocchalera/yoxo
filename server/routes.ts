@@ -83,6 +83,8 @@ export function registerRoutes(app: Express): Server {
   // アンケート回答の送信
   app.post('/api/submit-survey', async (req, res) => {
     try {
+      console.log('アンケート回答を受信:', req.body);
+
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
       const responses = req.body.responses;
       const userId = req.body.supabaseId || GUEST_USER_ID;
@@ -141,7 +143,7 @@ export function registerRoutes(app: Express): Server {
       };
 
       try {
-        console.log('Attempting to save survey response:', {
+        console.log('データベースに保存を試みます:', {
           yoxo_id: yoxoId,
           user_id: userId,
           section1_responses: section1,
@@ -159,21 +161,31 @@ export function registerRoutes(app: Express): Server {
           calculated_scores: calculatedScores
         }).returning();
 
-        console.log('Successfully saved survey response:', newResponse);
+        console.log('アンケート回答を保存しました:', newResponse);
 
         res.json({
           yoxoId,
           scores: calculatedScores
         });
       } catch (dbError) {
-        console.error('Database error details:', dbError);
+        console.error('データベースエラーの詳細:', {
+          error: dbError,
+          message: dbError instanceof Error ? dbError.message : String(dbError),
+          stack: dbError instanceof Error ? dbError.stack : undefined
+        });
+
         res.status(500).json({
           message: "データベースエラー",
           error: dbError instanceof Error ? dbError.message : String(dbError)
         });
       }
     } catch (error) {
-      console.error('Error submitting survey:', error);
+      console.error('アンケート送信エラーの詳細:', {
+        error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
       res.status(500).json({
         message: "アンケート送信中にエラーが発生しました",
         error: error instanceof Error ? error.message : String(error)
