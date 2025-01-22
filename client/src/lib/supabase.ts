@@ -15,6 +15,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// データ型の定義
 export type Profile = {
   id: string
   username: string
@@ -22,6 +23,25 @@ export type Profile = {
   created_at: string
 }
 
+export type SurveyResponse = {
+  id: string
+  yoxo_id: string
+  user_id: string
+  section1_responses: Record<string, any>
+  section2_responses: Record<string, any>
+  section3_responses: Record<string, any>
+  calculated_scores: Record<string, any>
+  created_at: string
+}
+
+export type Message = {
+  id: string
+  user_id: string
+  dify_message: string
+  created_at: string
+}
+
+// 認証関連の関数
 export async function getCurrentUser() {
   try {
     const { data: { user }, error } = await supabase.auth.getUser()
@@ -44,44 +64,54 @@ export async function signOut() {
   }
 }
 
-// サーバーとの同期を確認
-export async function checkAuthSync() {
+// データベース操作関連の関数
+export async function createProfile(userId: string, username: string, lineId?: string) {
   try {
-    const response = await fetch('/api/auth/me', {
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      throw new Error('認証セッションの確認に失敗しました');
-    }
-
-    return await response.json();
+    const { error } = await supabase
+      .from('users')
+      .insert([
+        {
+          supabase_id: userId,
+          line_id: lineId,
+          username: username
+        }
+      ])
+    if (error) throw error
+    return true
   } catch (error) {
-    console.error('Error checking auth sync:', error);
-    return null;
+    console.error('Error creating profile:', error)
+    return false
   }
 }
 
-// Supabaseの認証状態変更をリッスンし、必要に応じてDBを更新
+export async function getProfile(userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('supabase_id', userId)
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Error fetching profile:', error)
+    return null
+  }
+}
+
+// Supabaseの認証状態変更をリッスン
 supabase.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session?.user) {
     try {
-      // バックエンドと同期
-      const response = await fetch('/api/auth/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          supabase_id: session.user.id,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to sync user data');
+      // プロフィールの存在確認
+      const profile = await getProfile(session.user.id)
+      if (!profile) {
+        // プロフィールが存在しない場合は作成
+        await createProfile(session.user.id, session.user.email || 'anonymous')
       }
     } catch (error) {
-      console.error('Error syncing user data:', error);
+      console.error('Error syncing user data:', error)
     }
   }
 });
