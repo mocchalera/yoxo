@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getCurrentUser } from "@/lib/supabase"
@@ -36,6 +36,14 @@ export function QuestionnaireForm({
     responses,
     progress
   })
+
+  // セクションが変更されたときに状態をリセット
+  useEffect(() => {
+    setCurrentQuestionIndex(0)
+    setResponses([])
+    setAdvice(null)
+    setSubmitting(false)
+  }, [section])
 
   const handleAnswer = async (value: number) => {
     const newResponses = [...responses, value]
@@ -110,11 +118,6 @@ export function QuestionnaireForm({
     } else {
       setCurrentQuestionIndex(prev => prev + 1)
     }
-  }
-
-  // セクションが完了している場合は何も表示しない
-  if (currentQuestionIndex >= section.questions.length) {
-    return null
   }
 
   return (
