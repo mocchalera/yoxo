@@ -43,42 +43,48 @@ async function generateAdvice(scores: {
       }
     }
 
-    const response = await fetch(DIFY_API_URL, {
+    const apiUrl = DIFY_API_URL.endsWith('/') ? DIFY_API_URL : `${DIFY_API_URL}/`;
+    console.log('Calling Dify API at:', apiUrl);
+
+    const response = await fetch(`${apiUrl}completion-messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DIFY_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        messages: [{
-          role: 'user',
-          content: `
-            以下の測定結果に基づいて、具体的で実践的なアドバイスを日本語で提供してください：
+        inputs: {},
+        query: `
+          以下の測定結果に基づいて、具体的で実践的なアドバイスを日本語で提供してください：
 
-            現在の状態:
-            - 疲労タイプ: ${scores.fatigue_type}
-            - 脳疲労指数: ${scores.brain_fatigue.toFixed(1)}
-            - 心疲労指数: ${scores.mental_fatigue.toFixed(1)}
-            - 疲労源指数: ${scores.fatigue_source.toFixed(1)}
-            - レジリエンス: ${scores.resilience.toFixed(1)}
+          現在の状態:
+          - 疲労タイプ: ${scores.fatigue_type}
+          - 脳疲労指数: ${scores.brain_fatigue.toFixed(1)}
+          - 心疲労指数: ${scores.mental_fatigue.toFixed(1)}
+          - 疲労源指数: ${scores.fatigue_source.toFixed(1)}
+          - レジリエンス: ${scores.resilience.toFixed(1)}
 
-            ${historyContext}
+          ${historyContext}
 
-            アドバイスの要件:
-            1. 現在の疲労状態を簡潔に説明
-            2. 即実践できる具体的な改善アクション（3つ程度）
-            3. 前向きで励みになるメッセージ
+          アドバイスの要件:
+          1. 現在の疲労状態を簡潔に説明
+          2. 即実践できる具体的な改善アクション（3つ程度）
+          3. 前向きで励みになるメッセージ
 
-            フォーマット:
-            • 現状の解説
-            • 具体的なアドバイス（箇条書き）
-            • 励ましのメッセージ`
-        }],
+          フォーマット:
+          • 現状の解説
+          • 具体的なアドバイス（箇条書き）
+          • 励ましのメッセージ`,
         response_mode: 'blocking',
-        temperature: 0.7,
-        top_p: 0.9,
+        conversation_id: null,
+        user: "web-user"
       }),
     });
+
+    if (!response.ok) {
+      console.error('Dify API error:', await response.text());
+      return null;
+    }
 
     const data = await response.json();
     return data.answer;
@@ -91,44 +97,44 @@ async function generateAdvice(scores: {
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
 
-  // セッション設定を追加
   app.use(
     session({
-      secret: 'your-secret-key', // Replace with a strong, randomly generated secret
+      secret: 'your-secret-key',
       resave: false,
       saveUninitialized: true,
       cookie: { secure: process.env.NODE_ENV === 'production' }
     })
   );
 
-  // Submit survey responses - ゲストユーザーでも送信可能に修正
   app.post('/api/submit-survey', async (req, res) => {
     try {
-      console.log('Received survey submission:', req.body); 
+      console.log('Received survey submission:', req.body);
 
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
       const section1 = req.body.responses.slice(0, 6);
       const section2 = req.body.responses.slice(6, 12);
       const section3 = req.body.responses.slice(12, 16);
 
-      console.log('Parsed sections:', { section1, section2, section3 }); 
+      console.log('Parsed sections:', { section1, section2, section3 });
 
       const calculateScore = (responses: number[]) => {
-        const avg = responses.reduce((a, b) => a + b, 0) / responses.length;
-        return (avg - 1) * 25;
+        const sum = responses.reduce((a, b) => a + b, 0);
+        if (sum === 0) return 0;
+        return ((sum / responses.length) - 1) * 25;
       };
 
       const fatigueSource = calculateScore(section1);
       const mentalFatigue = calculateScore(section3);
-      const brainFatigue = (mentalFatigue - 50) * 50/30 + 50;
-      const resilience = 100 * (2 * fatigueSource)/(2 * fatigueSource + mentalFatigue + brainFatigue);
+      const brainFatigue = Math.max(0, Math.min(100, (mentalFatigue - 50) * 50/30 + 50));
+      const resilience = fatigueSource === 0 ? 0 : 
+        100 * (2 * fatigueSource)/(2 * fatigueSource + mentalFatigue + brainFatigue);
 
-      console.log('Calculated scores:', { 
-        fatigueSource, 
-        mentalFatigue, 
-        brainFatigue, 
-        resilience 
-      }); 
+      console.log('Calculated scores:', {
+        fatigueSource,
+        mentalFatigue,
+        brainFatigue,
+        resilience
+      });
 
       const getFatigueType = (mental: number, brain: number) => {
         const levels = ['低', '中', '高'];
@@ -165,7 +171,7 @@ export function registerRoutes(app: Express): Server {
       };
 
       const userId = req.body.userId || null;
-      console.log('User ID for advice:', userId); 
+      console.log('User ID for advice:', userId);
       const advice = await generateAdvice(calculatedScores, userId);
 
       const response = await db.insert(responses).values({
@@ -177,15 +183,15 @@ export function registerRoutes(app: Express): Server {
         calculated_scores: calculatedScores
       });
 
-      console.log('Database insert response:', response); 
+      console.log('Database insert response:', response);
 
-      res.json({ 
+      res.json({
         yoxoId,
-        advice 
+        advice
       });
     } catch (error) {
       console.error('Error submitting survey:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Internal server error",
         error: error instanceof Error ? error.message : String(error)
       });
@@ -202,7 +208,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ message: "Results not found" });
       }
 
-      const advice = result.calculated_scores ? 
+      const advice = result.calculated_scores ?
         await generateAdvice(result.calculated_scores) : null;
 
       res.json({
@@ -215,7 +221,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-
   app.get('/api/dashboard', async (req, res) => {
     try {
       const userId = req.query.userId as string;
@@ -226,12 +231,12 @@ export function registerRoutes(app: Express): Server {
       const results = await db.query.responses.findMany({
         where: eq(responses.user_id, parseInt(userId)),
         orderBy: [desc(responses.created_at)],
-        limit: 30, 
+        limit: 30,
       });
 
       const stats = {
         total_measurements: results.length,
-        avg_resilience: results.reduce((acc, curr) => 
+        avg_resilience: results.reduce((acc, curr) =>
           acc + curr.calculated_scores.resilience, 0) / results.length,
         common_fatigue_type: results
           .map(r => r.calculated_scores.fatigue_type)
