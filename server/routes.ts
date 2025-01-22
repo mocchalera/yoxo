@@ -4,10 +4,18 @@ import session from "express-session";
 import { db } from "@db";
 import { responses, users } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
+import MemoryStore from "memorystore";
 
 // サーバーサイドでは VITE_ プレフィックスなしの環境変数を使用
 const DIFY_API_KEY = process.env.DIFY_API_KEY || process.env.VITE_DIFY_API_KEY;
 const DIFY_API_URL = process.env.DIFY_API_URL || process.env.VITE_DIFY_API_URL;
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn('Supabase環境変数が設定されていません。認証機能は無効化されます。');
+}
 
 if (!DIFY_API_KEY || !DIFY_API_URL) {
   console.warn('Dify環境変数が設定されていません。アドバイス機能は無効化されます。');
@@ -97,15 +105,74 @@ async function generateAdvice(scores: {
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
+  const MemoryStoreSession = MemoryStore(session);
 
   app.use(
     session({
-      secret: 'your-secret-key',
+      secret: process.env.SESSION_SECRET || 'your-secret-key',
       resave: false,
       saveUninitialized: false,
-      cookie: { secure: false } 
+      store: new MemoryStoreSession({
+        checkPeriod: 86400000 // 24時間でメモリをクリア
+      }),
+      cookie: { 
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24時間
+      }
     })
   );
+
+  // 認証状態の確認エンドポイント
+  app.get('/api/auth/me', async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId)
+      });
+
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Supabaseのユーザー情報をDBと同期するエンドポイント
+  app.post('/api/auth/sync', async (req, res) => {
+    try {
+      const { supabase_id } = req.body;
+      if (!supabase_id) {
+        return res.status(400).json({ message: "Supabase ID is required" });
+      }
+
+      let user = await db.query.users.findFirst({
+        where: eq(users.supabase_id, supabase_id)
+      });
+
+      if (!user) {
+        const [newUser] = await db.insert(users).values({
+          supabase_id,
+          created_at: new Date()
+        }).returning();
+        user = newUser;
+      }
+
+      req.session.userId = user.id;
+      res.json(user);
+    } catch (error) {
+      console.error('Error syncing user:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   app.post('/api/submit-survey', async (req, res) => {
     try {

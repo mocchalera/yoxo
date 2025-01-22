@@ -37,6 +37,29 @@ export async function signInWithGoogle() {
   })
 
   if (error) throw error
+
+  // ログイン成功後、ユーザー情報をバックエンドと同期
+  if (data?.user) {
+    try {
+      const response = await fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          supabase_id: data.user.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to sync user data');
+      }
+    } catch (error) {
+      console.error('Error syncing user data:', error);
+      // エラーが発生してもログインは続行
+    }
+  }
+
   return data
 }
 
@@ -60,20 +83,22 @@ export async function getCurrentUser() {
 supabase.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session?.user) {
     try {
-      // ユーザーがすでに存在するか確認
-      const existingUser = await db.query.users.findFirst({
-        where: eq(users.supabase_id, session.user.id)
-      })
-
-      if (!existingUser) {
-        // 新規ユーザーの場合、DBに追加
-        await db.insert(users).values({
+      // バックエンドと同期
+      const response = await fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           supabase_id: session.user.id,
-          created_at: new Date()
-        })
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to sync user data');
       }
     } catch (error) {
-      console.error('Error syncing user data:', error)
+      console.error('Error syncing user data:', error);
     }
   }
-})
+});
