@@ -9,6 +9,7 @@ import ResultPage from "@/pages/result";
 import DashboardPage from "@/pages/dashboard";
 import { AuthGuard } from "@/components/ui/AuthGuard";
 import { Navbar } from "@/components/ui/Navbar";
+import { AuthProvider } from "./lib/AuthContext";
 
 function Router() {
   return (
@@ -34,8 +35,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <AuthProvider>
+        <Router />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
