@@ -5,24 +5,24 @@ import postgres from "pg";
 const { Pool } = postgres;
 
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL環境変数が設定されていません");
+  throw new Error('DATABASE_URL環境変数が設定されていません。');
 }
 
-console.log('データベース接続を開始します...');
+console.log('Supabaseデータベースへの接続を開始します...');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
   },
-  max: 5,
+  max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 });
 
 // 接続テスト
 pool.on('connect', () => {
-  console.log('PostgreSQLに接続しました');
+  console.log('Supabaseデータベースに接続しました');
 });
 
 pool.on('error', (err) => {
