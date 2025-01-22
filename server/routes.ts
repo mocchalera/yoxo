@@ -6,6 +6,7 @@ import { survey_responses, users } from "@db/schema";
 import { eq } from "drizzle-orm";
 import MemoryStore from "memorystore";
 import { createClient } from '@supabase/supabase-js';
+import fetch from 'node-fetch';
 
 declare module 'express-session' {
   interface SessionData {
@@ -13,14 +14,19 @@ declare module 'express-session' {
   }
 }
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('Supabase環境変数が設定されていません。');
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  throw new Error('Supabase環境変数が設定されていません。');
 }
 
-const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+  },
+  global: {
+    fetch: fetch as any
+  }
+});
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -42,6 +48,36 @@ export function registerRoutes(app: Express): Server {
     })
   );
 
+  // Supabase認証同期エンドポイント
+  app.post('/api/auth/sync', async (req, res) => {
+    try {
+      const { supabase_id } = req.body;
+      if (!supabase_id) {
+        return res.status(400).json({ message: "Supabase IDが必要です" });
+      }
+
+      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(supabase_id);
+      if (authError) {
+        console.error('Supabase認証エラー:', authError);
+        return res.status(401).json({ message: "ユーザー認証に失敗しました" });
+      }
+
+      // ユーザーをデータベースに同期
+      const [user] = await db.insert(users)
+        .values({
+          supabase_id: supabase_id,
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      res.json({ user });
+    } catch (error) {
+      console.error('認証同期エラー:', error);
+      res.status(500).json({ message: "サーバーエラーが発生しました" });
+    }
+  });
+
+  // 既存のルート
   app.post('/api/submit-survey', async (req, res) => {
     try {
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
