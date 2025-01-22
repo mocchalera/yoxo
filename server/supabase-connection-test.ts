@@ -70,7 +70,7 @@ async function testDatabaseConnection() {
 // Supabase APIテスト
 async function testSupabaseAPI() {
   console.log('\n3. Supabase API接続テスト:');
-  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
     auth: {
       autoRefreshToken: true,
       persistSession: true

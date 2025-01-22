@@ -23,8 +23,15 @@ async function testConnection() {
     const client = await pool.connect();
     console.log('接続テスト成功');
 
-    const result = await client.query('SELECT current_database()');
-    console.log('現在のデータベース:', result.rows[0]);
+    const result = await client.query('SELECT current_database(), current_user, version()');
+    console.log('データベース情報:', result.rows[0]);
+
+    const tableList = await client.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+    `);
+    console.log('利用可能なテーブル:', tableList.rows.map(row => row.table_name));
 
     client.release();
   } catch (error: any) {
