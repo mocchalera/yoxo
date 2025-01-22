@@ -48,42 +48,37 @@ export function QuestionnaireForm({
         setError(null)
 
         if (isLastSection) {
-          // 前のセクションの回答を取得
           const previousSections = sessionStorage.getItem('survey_responses')
           const previousResponses = previousSections ? JSON.parse(previousSections) : []
-
-          // 全ての回答を結合（最大16個まで）
           const allResponses = [...previousResponses, ...newResponses].slice(0, 16)
 
-          console.log('Submitting survey responses:', {
+          const requestData = {
             responses: allResponses,
-            supabaseId: user?.id
-          })
+            supabaseId: user?.id || '00000000-0000-0000-0000-000000000000'
+          }
+
+          console.log('Submitting survey responses:', requestData)
 
           const response = await fetch('/api/submit-survey', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              responses: allResponses,
-              supabaseId: user?.id
-            })
+            body: JSON.stringify(requestData),
+            credentials: 'include'
           })
 
+          const data = await response.json()
+
           if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.message || errorData.error || '送信に失敗しました')
+            throw new Error(data.message || data.error || '送信に失敗しました')
           }
 
-          const data = await response.json()
           sessionStorage.removeItem('survey_responses')
-
           setTimeout(() => {
             onComplete(data.yoxoId)
           }, 1000)
         } else {
-          // 現在のセクションの回答を保存
           const previousResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
           sessionStorage.setItem('survey_responses', JSON.stringify([...previousResponses, ...newResponses]))
           setSubmitting(false)
