@@ -24,16 +24,12 @@ export function Navbar() {
   return (
     <nav className="border-b">
       <div className="container flex h-16 items-center justify-between">
-        <Link href="/">
-          <a className="text-lg font-bold">
-            YOXO Fes
-          </a>
+        <Link href="/" className="text-lg font-bold">
+          YOXO Fes
         </Link>
         <div className="flex items-center gap-4">
-          <Link href="/dashboard">
-            <a className="text-sm font-medium hover:underline">
-              ダッシュボード
-            </a>
+          <Link href="/dashboard" className="text-sm font-medium hover:underline">
+            ダッシュボード
           </Link>
           <Button variant="outline" onClick={handleSignOut}>
             ログアウト

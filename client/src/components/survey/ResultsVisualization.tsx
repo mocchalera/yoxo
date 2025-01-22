@@ -11,6 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
 
 type FatigueScores = {
   fatigue_type: string;
@@ -26,16 +27,39 @@ interface ResultsVisualizationProps {
 }
 
 export function ResultsVisualization({ yoxoId }: ResultsVisualizationProps) {
-  const { data: results, isLoading } = useQuery<FatigueScores>({
+  const { toast } = useToast()
+  const { data: results, isLoading, error } = useQuery<FatigueScores>({
     queryKey: [`/api/results/${yoxoId}`],
+    onError: (err: Error) => {
+      console.error('Error fetching results:', err)
+      toast({
+        title: "エラー",
+        description: "結果の取得に失敗しました",
+        variant: "destructive"
+      })
+    }
   })
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>
+          結果の取得に失敗しました。もう一度お試しください。
+        </AlertDescription>
+      </Alert>
+    )
+  }
 
   if (isLoading) {
     return <Skeleton className="w-full h-64" />
   }
 
   if (!results) {
-    return <div>結果が見つかりませんでした</div>
+    return (
+      <Alert>
+        <AlertDescription>結果が見つかりませんでした</AlertDescription>
+      </Alert>
+    )
   }
 
   const chartData = [
