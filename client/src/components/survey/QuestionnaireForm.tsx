@@ -30,13 +30,6 @@ export function QuestionnaireForm({
 
   const progress = (currentQuestionIndex / section.questions.length) * 100
 
-  console.log('Current state:', { 
-    currentQuestionIndex,
-    totalQuestions: section.questions.length,
-    responses,
-    progress
-  })
-
   // セクションが変更されたときに状態をリセット
   useEffect(() => {
     setCurrentQuestionIndex(0)
@@ -54,11 +47,11 @@ export function QuestionnaireForm({
         setSubmitting(true)
 
         if (isLastSection) {
-          let userId = null
+          let supabaseId = null
           try {
             const user = await getCurrentUser()
             if (user) {
-              userId = user.id
+              supabaseId = user.id
             }
           } catch (error) {
             console.log('No authenticated user, proceeding as guest')
@@ -69,8 +62,6 @@ export function QuestionnaireForm({
           // 現在のセクションの回答を追加
           const allResponses = [...previousResponses, ...newResponses]
 
-          console.log('Submitting all responses:', allResponses)
-
           const response = await fetch('/api/submit-survey', {
             method: 'POST',
             headers: {
@@ -78,7 +69,7 @@ export function QuestionnaireForm({
             },
             body: JSON.stringify({
               responses: allResponses,
-              userId
+              supabaseId
             })
           })
 
@@ -90,11 +81,10 @@ export function QuestionnaireForm({
           const data = await response.json()
           sessionStorage.removeItem('survey_responses')
 
-          if (data.advice) {
-            setAdvice(data.advice)
+          if (data.scores) {
             setTimeout(() => {
               onComplete(data.yoxoId)
-            }, 5000)
+            }, 1000)
           } else {
             onComplete(data.yoxoId)
           }
@@ -102,7 +92,6 @@ export function QuestionnaireForm({
           // 現在のセクションの回答を保存
           const previousResponses = JSON.parse(sessionStorage.getItem('survey_responses') || '[]')
           sessionStorage.setItem('survey_responses', JSON.stringify([...previousResponses, ...newResponses]))
-          console.log('Saving section responses:', newResponses)
           setSubmitting(false)
           onSectionComplete()
         }

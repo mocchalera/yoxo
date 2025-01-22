@@ -5,6 +5,7 @@ import { db } from "@db";
 import { responses, users } from "@db/schema";
 import { eq } from "drizzle-orm";
 import MemoryStore from "memorystore";
+import { createClient } from '@supabase/supabase-js';
 
 declare module 'express-session' {
   interface SessionData {
@@ -12,16 +13,14 @@ declare module 'express-session' {
   }
 }
 
-// サーバーサイドでは VITE_ プレフィックスなしの環境変数を使用
-const DIFY_API_KEY = process.env.DIFY_API_KEY || process.env.VITE_DIFY_API_KEY;
-const DIFY_API_URL = process.env.DIFY_API_URL || process.env.VITE_DIFY_API_URL;
-
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.warn('Supabase環境変数が設定されていません。認証機能は無効化されます。');
 }
+
+const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -46,14 +45,10 @@ export function registerRoutes(app: Express): Server {
   // アンケート結果の送信エンドポイント
   app.post('/api/submit-survey', async (req, res) => {
     try {
-      console.log('Received survey submission:', req.body);
-
       const yoxoId = `YX${new Date().toISOString().slice(2,8)}${Math.random().toString().slice(2,6)}`;
       const section1 = req.body.responses.slice(0, 6);
       const section2 = req.body.responses.slice(6, 12);
       const section3 = req.body.responses.slice(12, 16);
-
-      console.log('Parsed sections:', { section1, section2, section3 });
 
       // スコアの計算
       const calculateScore = (responses: number[]) => {
@@ -67,7 +62,6 @@ export function registerRoutes(app: Express): Server {
       const resilience = fatigueSource === 0 ? 0 : 
         100 * (2 * fatigueSource)/(2 * fatigueSource + mentalFatigue + brainFatigue);
 
-      // 疲労タイプの判定
       const getFatigueType = (mental: number, brain: number) => {
         const getMentalLevel = (score: number) => {
           if (score < 33) return 0;
@@ -98,17 +92,46 @@ export function registerRoutes(app: Express): Server {
         resilience: resilience
       };
 
+      let userId = req.session.userId || null;
+
+      // Supabaseユーザー情報があれば、そのユーザーIDを使用
+      if (req.body.supabaseId) {
+        try {
+          const { data: supabaseUser, error } = await supabase.auth.getUser(req.body.supabaseId);
+          if (error) throw error;
+
+          const user = await db.query.users.findFirst({
+            where: eq(users.supabase_id, supabaseUser.user.id)
+          });
+
+          if (user) {
+            userId = user.id;
+            req.session.userId = user.id;
+          } else {
+            // 新規ユーザーの作成
+            const [newUser] = await db.insert(users)
+              .values({
+                supabase_id: supabaseUser.user.id,
+                created_at: new Date()
+              })
+              .returning();
+            userId = newUser.id;
+            req.session.userId = newUser.id;
+          }
+        } catch (error) {
+          console.error('Error validating Supabase user:', error);
+        }
+      }
+
       // データベースに保存
       const [response] = await db.insert(responses).values({
         yoxo_id: yoxoId,
-        user_id: req.session.userId || null,
+        user_id: userId,
         section1_responses: section1,
         section2_responses: section2,
         section3_responses: section3,
         calculated_scores: calculatedScores
       }).returning();
-
-      console.log('Database insert response:', response);
 
       res.json({
         yoxoId,
@@ -172,6 +195,12 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Supabase ID is required" });
       }
 
+      // Supabaseでユーザーを検証
+      const { data: supabaseUser, error: supabaseError } = await supabase.auth.getUser(supabase_id);
+      if (supabaseError || !supabaseUser) {
+        return res.status(401).json({ message: "Invalid Supabase user" });
+      }
+
       let user = await db.query.users.findFirst({
         where: eq(users.supabase_id, supabase_id)
       });
@@ -188,7 +217,10 @@ export function registerRoutes(app: Express): Server {
       res.json(user);
     } catch (error) {
       console.error('Error syncing user:', error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ 
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

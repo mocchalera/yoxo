@@ -10,7 +10,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
-    persistSession: true
+    persistSession: true,
+    detectSessionInUrl: true
   }
 });
 
@@ -29,6 +30,24 @@ export async function getCurrentUser() {
   } catch (error) {
     console.error('Error getting current user:', error)
     return null
+  }
+}
+
+// サーバーとの同期を確認
+export async function checkAuthSync() {
+  try {
+    const response = await fetch('/api/auth/me', {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('認証セッションの確認に失敗しました');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error checking auth sync:', error);
+    return null;
   }
 }
 

@@ -6,16 +6,19 @@ import { useToast } from '@/hooks/use-toast'
 interface AuthContextType {
   user: User | null
   loading: boolean
+  error: Error | null
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  loading: true
+  loading: true,
+  error: null
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await syncUserWithBackend(currentUser.id)
         } catch (error) {
           console.error('Error syncing user:', error)
+          setError(error instanceof Error ? error : new Error('Unknown error'))
           toast({
             title: "エラー",
             description: "ユーザー情報の同期に失敗しました",
@@ -67,10 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!response.ok) {
       throw new Error('Failed to sync user data')
     }
+
+    const data = await response.json()
+    return data
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, error }}>
       {children}
     </AuthContext.Provider>
   )
