@@ -35,14 +35,16 @@ export function QuestionnaireForm({
     }
   })
 
-  const onSubmit = async (values: { responses: string[] }) => {
+  const onSubmit = async () => {
     try {
-      console.log('Form submitted with values:', values)
       const responses = form.getValues().responses
-      console.log('Current form responses:', responses)
+      console.log('Submitting responses:', responses)
 
-      const hasEmptyResponses = responses.some(r => !r)
-      if (hasEmptyResponses) {
+      // Check if all questions are answered
+      const emptyResponses = responses.filter(r => !r)
+      console.log('Empty responses:', emptyResponses)
+
+      if (emptyResponses.length > 0) {
         toast({
           title: "エラー",
           description: "すべての質問に回答してください",
@@ -55,7 +57,6 @@ export function QuestionnaireForm({
 
       if (isLastSection) {
         const user = await getCurrentUser()
-        console.log('Current user:', user)
 
         const response = await fetch('/api/submit-survey', {
           method: 'POST',
@@ -75,7 +76,7 @@ export function QuestionnaireForm({
         }
 
         const data = await response.json()
-        console.log('Survey submission response:', data)
+        console.log('Survey submission successful:', data)
 
         if (data.advice) {
           setAdvice(data.advice)
